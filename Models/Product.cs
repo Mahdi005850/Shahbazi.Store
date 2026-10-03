@@ -1,75 +1,81 @@
-﻿namespace Shahbazi.Store.Models;
+﻿using Shahbazi.Store.ResultPattern;
+
+namespace Shahbazi.Store.Models;
 
 public class Product
 {
-    public string ProductName { get; private set; }
-    public decimal ProductPrice { get; private set; }
-    public string? ProductDescription { get; private set; }
-    public int Stock { get; private set; }
-    public ICollection<CartItem> CartItems { get; private set; } = new List<CartItem>();
-    public ICollection<OrderItem> OrderItems { get; private set; } = new List<OrderItem>();
     public int Id { get; internal set; }
-    public Product(string productName, decimal productPrice, string? productDescription, int stock)
+    public string Name { get; private set; }
+    public decimal Price { get; private set; }
+    public string? Description { get; private set; }
+    public int Stock { get; private set; }
+    public Product(string name, decimal price, string? description, int stock)
     {
-        if (string.IsNullOrWhiteSpace(productName))
+        Name = name;
+        Price = price;
+        Description = description;
+        Stock = stock;
+    }
+    public static Result<Product> Create(string name, decimal price, string? description, int stock)
+    {
+        if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("The productName id neccesary!!");
+            return Result<Product>.Failure("The productName id neccesary!!", ResultErrorType.BadRequest);
         }
-        if (productPrice < 0)
+        if (price < 0)
         {
-            throw new ArgumentException("The price can not be negative !!");
+            return Result<Product>.Failure("The price can not be negative !!", ResultErrorType.BadRequest);
         }
         if (stock < 0)
         {
-            throw new ArgumentException("Stock Can not be negative !!");
+            return Result<Product>.Failure("Stock Can not be negative !!", ResultErrorType.BadRequest);
         }
-        ProductName = productName;
-        ProductPrice = productPrice;
-        ProductDescription = productDescription;
-        Stock = stock;
+        return Result<Product>.Success(new Product(name, price, description, stock));
     }
-
-    public void IncreaseStock(int amount)
+    public Result IncreaseStock(int amount)
     {
         if (amount <= 0)
         {
-            throw new ArgumentException("The amount must be more than 0 !!");
+            return Result.Failure("The amount must be more than 0 !!", ResultErrorType.BadRequest);
         }
         Stock += amount;
+        return Result.Success();
     }
-    public void DecreaseStock(int amount)
+    public Result DecreaseStock(int amount)
     {
         if (amount <= 0)
         {
-            throw new ArgumentException("The amount must be more than 0!!");
+            return Result.Failure("The amount must be more than 0!!", ResultErrorType.BadRequest);
         }
         if (Stock < amount)
         {
-            throw new InvalidOperationException("No Enough Stock!!");
+            return Result.Failure("No Enough Stock!!", ResultErrorType.Conflict);
         }
         Stock -= amount;
+        return Result.Success();
     }
-    public void ChangePrice(decimal newPrice)
+    public Result ChangePrice(decimal newPrice)
     {
         if (newPrice < 0)
         {
-            throw new ArgumentException("Price can not be 0 !!");
+            return Result.Failure("Price can not be 0 !!", ResultErrorType.BadRequest);
         }
-        ProductPrice = newPrice;
+        Price = newPrice;
+        return Result.Success();
     }
-    public void UpdateInformation(string productName, decimal productPrice, string? productDescription)
+    public Result UpdateInformation(string name, decimal price, string? description)
     {
-        if (string.IsNullOrWhiteSpace(productName))
+        if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("The productName Cannot be empty !!");
+            return Result.Failure("The productName Cannot be empty !!", ResultErrorType.BadRequest);
         }
-        if (productPrice < 0)
+        if (price < 0)
         {
-            throw new ArgumentException("The price Can not be negative !!");
+            return Result.Failure("The price Can not be negative !!", ResultErrorType.BadRequest);
         }
-        ProductName = productName;
-        ProductPrice = productPrice;
-        ProductDescription = productDescription;
+        Name = name;
+        Price = price;
+        Description = description;
+        return Result.Success();
     }
-
 }

@@ -1,6 +1,8 @@
-﻿using Shahbazi.Store.Models;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Shahbazi.Store.Data;
+using Shahbazi.Store.Models;
+using Shahbazi.Store.ResultPattern;
+
 namespace Shahbazi.Store.Services;
 
 public class CartServices
@@ -12,132 +14,177 @@ public class CartServices
         _productServices = productServices;
         _context = context;
     }
-    public Cart? GetCart(int userId)
+    public Result<Cart> GetCart(int userId)
     {
-        return _context.Carts.Include(c => c.CartItems).FirstOrDefault(c => c.UserId == userId);
+        var cart = _context.Carts.Include(c => c.CartItems).FirstOrDefault(c => c.UserId == userId);
+        if (cart == null)
+        {
+            return Result<Cart>.Failure("Cart didn't find !!", ResultErrorType.NotFound);
+        }
+        return Result<Cart>.Success(cart);
     }
-    public Cart CreatCart(int userId)
+    public Result<Cart> CreatCart(int userId)
     {
         if (userId <= 0)
         {
-            throw new ArgumentException("Invalid UserId !!");
+            return Result<Cart>.Failure("Invalid UserId !!", ResultErrorType.BadRequest);
         }
-        var existingCart = GetCart(userId);
+        var existingCart = _context.Carts.FirstOrDefault(c => c.UserId == userId);
         if (existingCart != null)
         {
-            throw new InvalidOperationException("This User has exsisting Cart !!");
+            return Result<Cart>.Failure("This User has exsisting Cart !!", ResultErrorType.Conflict);
         }
-        var cart = new Cart(userId);
+        var cartResult = Cart.Create(userId);
+        if (!cartResult.IsSuccess)
+        {
+            return cartResult;
+        }
+        var cart = cartResult.Value!;
         _context.Carts.Add(cart);
         _context.SaveChanges();
-        return cart;
+        return Result<Cart>.Success(cart);
     }
-    public void AddToCart(int userId, int productId, int quantity)
+    public Result AddToCart(int userId, int productId, int quantity)
     {
         if (quantity <= 0)
-            throw new ArgumentException("Quantities must be more than 0 !!");
-
-        var cart = GetCart(userId);
-
-        if (cart == null)
-            throw new InvalidOperationException("Cart didn't find !!");
-
-        var product = _productServices.GetProduct(productId);
-
-        if (product == null)
-            throw new InvalidOperationException("Product didn't find !!");
-
+        {
+            return Result.Failure("Quantities must be more than 0 !!", ResultErrorType.BadRequest);
+        }
+        var cartResult = GetCart(userId);
+        if (!cartResult.IsSuccess)
+        {
+            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
+        }
+        var productResult = _productServices.GetProduct(productId);
+        if (!productResult.IsSuccess)
+        {
+            return Result.Failure(productResult.Error!, productResult.ErrorType);
+        }
+        var cart = cartResult.Value!;
+        var product = productResult.Value!;
         if (quantity > product.Stock)
-            throw new InvalidOperationException("Not enough stock !!");
-
-        var existingItem = cart.CartItems
-            .FirstOrDefault(x => x.ProductId == productId);
-
+        {
+            return Result.Failure("Not enough stock !!", ResultErrorType.Conflict);
+        }
+        var existingItem = cart.CartItems.FirstOrDefault(x => x.ProductId == productId);
         if (existingItem != null)
         {
-            existingItem.IncreaseQuantity(quantity);
+            var result = existingItem.IncreaseQuantity(quantity);
+            if (!result.IsSuccess)
+            {
+                return result;
+            }
         }
         else
         {
-            var cartItem = new CartItem(
-                cart.Id,
-                product.Id,
-                quantity,
-                product.ProductPrice);
-            cart.AddItem(cartItem);
+            var cartItemResult = CartItem.Create(cart.Id, product.Id, quantity, product.Price);
+            if (!cartItemResult.IsSuccess)
+            {
+                return Result.Failure(cartItemResult.Error!, cartItemResult.ErrorType);
+            }
+            var result = cart.AddItem(cartItemResult.Value!);
+            if (!result.IsSuccess)
+            {
+                return result;
+            }
         }
         _context.SaveChanges();
+        return Result.Success();
     }
-    public void RemoveFromCart(int userId, int productId)
+    public Result RemoveFromCart(int userId, int productId)
     {
-        var cart = GetCart(userId);
-        if (cart == null)
+        var cartResult = GetCart(userId);
+        if (!cartResult.IsSuccess)
         {
-            throw new InvalidOperationException("Cart didn't find !!");
+            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
         }
+        var cart = cartResult.Value!;
         var cartItem = cart.CartItems.FirstOrDefault(x => x.ProductId == productId);
         if (cartItem == null)
         {
-            throw new InvalidOperationException("Product is not in the cart !!");
+            return Result.Failure("Product is not in the cart !!", ResultErrorType.NotFound);
         }
-        cart.RemoveItem(cartItem);
+        var result = cart.RemoveItem(cartItem);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
         _context.SaveChanges();
+        return Result.Success();
     }
-    public void IncreaseQuantity(int userId, int productId, int amount)
+    public Result IncreaseQuantity(int userId, int productId, int amount)
     {
         if (amount <= 0)
         {
-            throw new ArgumentException("Amount must be more than 0 !!");
+            return Result.Failure("Amount must be more than 0 !!", ResultErrorType.BadRequest);
         }
-        var cart = GetCart(userId);
-        if (cart == null)
+        var cartResult = GetCart(userId);
+        if (!cartResult.IsSuccess)
         {
-            throw new InvalidOperationException("Cart didn't find !!");
+            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
         }
+        var cart = cartResult.Value!;
         var cartItem = cart.CartItems.FirstOrDefault(x => x.ProductId == productId);
         if (cartItem == null)
         {
-            throw new InvalidOperationException("Product is not in the cart !!");
+            return Result.Failure("Product is not in the cart !!", ResultErrorType.NotFound);
         }
-        var product = _productServices.GetProduct(productId);
-        if (product == null)
+        var productResult = _productServices.GetProduct(productId);
+        if (!productResult.IsSuccess)
         {
-            throw new InvalidOperationException("Product didn't find !!");
+            return Result.Failure(productResult.Error!, productResult.ErrorType);
         }
+        var product = productResult.Value!;
         if (cartItem.Quantity + amount > product.Stock)
         {
-            throw new InvalidOperationException("Not enough Stock !!");
+            return Result.Failure("Not enough Stock !!", ResultErrorType.Conflict);
         }
-        cartItem.IncreaseQuantity(amount);
+        var result = cartItem.IncreaseQuantity(amount);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
         _context.SaveChanges();
+        return Result.Success();
     }
-    public void DecreaseQuantity(int userId, int productId, int amount)
+    public Result DecreaseQuantity(int userId, int productId, int amount)
     {
         if (amount <= 0)
         {
-            throw new ArgumentException("Amount must be more than 0 !!");
+            return Result.Failure("Amount must be more than 0 !!", ResultErrorType.BadRequest);
         }
-        var cart = GetCart(userId);
-        if (cart == null)
+        var cartResult = GetCart(userId);
+        if (!cartResult.IsSuccess)
         {
-            throw new InvalidOperationException("Cart didn't find !!");
+            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
         }
+        var cart = cartResult.Value!;
         var cartItem = cart.CartItems.FirstOrDefault(x => x.ProductId == productId);
         if (cartItem == null)
         {
-            throw new InvalidOperationException("Product is not in the cart !!");
+            return Result.Failure("Product is not in the cart !!", ResultErrorType.NotFound);
         }
-        cartItem.DecreaseQuantity(amount);
-        _context.SaveChanges();
-    }
-    public void ClearCart(int userId)
-    {
-        var cart = GetCart(userId);
-        if (cart == null)
+        var result = cartItem.DecreaseQuantity(amount);
+        if (!result.IsSuccess)
         {
-            throw new InvalidOperationException("Cart didn't find");
+            return result;
         }
-        cart.Clear();
         _context.SaveChanges();
+        return Result.Success();
+    }
+    public Result ClearCart(int userId)
+    {
+        var cartResult = GetCart(userId);
+        if (!cartResult.IsSuccess)
+        {
+            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
+        }
+        var result = cartResult.Value!.Clear();
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+        _context.SaveChanges();
+        return Result.Success();
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using Shahbazi.Store.ResultPattern;
+
 namespace Shahbazi.Store.Models;
 
 public class CartItem
@@ -8,58 +9,64 @@ public class CartItem
     public int ProductId { get; private set; }
     public int Quantity { get; private set; }
     public decimal UnitPrice { get; private set; }
-    [JsonIgnore]public Cart Cart { get; private set; }
-    public Product Product { get; private set; } = null;
     public decimal TotalPrice => UnitPrice * Quantity;
     public CartItem(int cartId, int productId, int quantity, decimal unitPrice)
     {
-        if (cartId <= 0)
-        {
-            throw new ArgumentException("CartId is Invalid !!");
-        }
-        if (productId <= 0)
-        {
-            throw new ArgumentException("ProductId is Invalid !!");
-        }
-        if (quantity <= 0)
-        {
-            throw new ArgumentException("Quantity must be more !!");
-        }
-        if (unitPrice <= 0)
-        {
-            throw new ArgumentException("Price Can not be 0 !!");
-        }
         CartId = cartId;
         ProductId = productId;
         Quantity = quantity;
         UnitPrice = unitPrice;
     }
-    public void IncreaseQuantity(int amount)
+    public static Result<CartItem> Create(int cartId, int productId, int quantity, decimal unitPrice)
+    {
+        if (cartId <= 0)
+        {
+            return Result<CartItem>.Failure("CartId is Invalid !!", ResultErrorType.BadRequest);
+        }
+        if (productId <= 0)
+        {
+            return Result<CartItem>.Failure("ProductId is Invalid !!", ResultErrorType.BadRequest);
+        }
+        if (quantity <= 0)
+        {
+            return Result<CartItem>.Failure("Quantity must be more !!", ResultErrorType.BadRequest);
+        }
+        if (unitPrice <= 0)
+        {
+            return Result<CartItem>.Failure("Price Can not be 0 !!", ResultErrorType.BadRequest);
+        }
+        return Result<CartItem>.Success(
+            new CartItem(cartId, productId, quantity, unitPrice));
+    }
+    public Result IncreaseQuantity(int amount)
     {
         if (amount <= 0)
         {
-            throw new ArgumentException("The Amount must be more than 0 !!");
+            return Result.Failure("The Amount must be more than 0 !!", ResultErrorType.BadRequest);
         }
         Quantity += amount;
+        return Result.Success();
     }
-    public void DecreaseQuantity(int amount)
+    public Result DecreaseQuantity(int amount)
     {
         if (amount <= 0)
         {
-            throw new ArgumentException("The Amount must be more than 0 !!");
+            return Result.Failure("The Amount must be more than 0 !!", ResultErrorType.BadRequest);
         }
         if (Quantity - amount < 1)
         {
-            throw new InvalidOperationException("The Quantity Of Product Can not be less than 1 !!");
+            return Result.Failure("The Quantity Of Product Can not be less than 1 !!", ResultErrorType.BadRequest);
         }
         Quantity -= amount;
+        return Result.Success();
     }
-    public void ChangeQuantity(int quantity)
+    public Result ChangeQuantity(int quantity)
     {
         if (quantity < 1)
         {
-            throw new ArgumentException("Quantity AtLeast most be 1!!");
+            return Result.Failure("Quantity AtLeast most be 1!!", ResultErrorType.BadRequest);
         }
         Quantity = quantity;
+        return Result.Success();
     }
 }

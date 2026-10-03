@@ -1,4 +1,5 @@
 ﻿using Shahbazi.Store.Enums;
+using Shahbazi.Store.ResultPattern;
 
 namespace Shahbazi.Store.Models;
 
@@ -9,42 +10,47 @@ public class Order
     public DateTime CreatedAt { get; private set; }
     public OrderStatus Status { get; private set; }
     public string ShippingAddress { get; private set; }
-    public User User { get; private set; }
     public ICollection<OrderItem> OrderItems { get; private set; } = new List<OrderItem>();
-    //public long TotalPrice => orderItems.Sum(x => x.TotalPrice);
     public Order(int userId, string shippingAddress)
     {
-        if (userId <= 0)
-        {
-            throw new ArgumentException("Invalid UserId !!");
-        }
-        if (string.IsNullOrWhiteSpace(shippingAddress))
-        {
-            throw new ArgumentException("Address Cannot be Empty , Please Enter your address !!");
-        }
         UserId = userId;
         ShippingAddress = shippingAddress;
         CreatedAt = DateTime.Now;
         Status = OrderStatus.Pending;
     }
-    public void AddItem(OrderItem item)
+    public static Result<Order> Create(int userId, string shippingAddress)
+    {
+        if (userId <= 0)
+        {
+            return Result<Order>.Failure("Invalid UserId !!", ResultErrorType.BadRequest);
+        }
+        if (string.IsNullOrWhiteSpace(shippingAddress))
+        {
+            return Result<Order>.Failure("Address Cannot be Empty , Please Enter your address !!", ResultErrorType.BadRequest);
+        }
+        return Result<Order>.Success(new Order(userId, shippingAddress));
+    }
+    public Result AddItem(OrderItem item)
     {
         if (item == null)
         {
-            throw new ArgumentNullException(nameof(item));
+            return Result.Failure("OrderItem is invalid !!", ResultErrorType.BadRequest);
         }
         OrderItems.Add(item);
+        return Result.Success();
     }
-    public void ChangeOrderStatus(OrderStatus status)
+    public Result ChangeOrderStatus(OrderStatus status)
     {
         Status = status;
+        return Result.Success();
     }
-    public void Cancel()
+    public Result Cancel()
     {
         if (Status == OrderStatus.Delivered)
         {
-            throw new InvalidOperationException("Can not Cancel Delivered item !!");
+            return Result.Failure("Can not Cancel Delivered item !!", ResultErrorType.Conflict);
         }
         Status = OrderStatus.Cancelled;
+        return Result.Success();
     }
 }

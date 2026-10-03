@@ -1,4 +1,6 @@
-﻿namespace Shahbazi.Store.Models;
+﻿using Shahbazi.Store.ResultPattern;
+
+namespace Shahbazi.Store.Models;
 
 public class Cart
 {
@@ -6,40 +8,46 @@ public class Cart
     public int UserId { get; private set; }
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
-    public User User { get; private set; } = null;
     public ICollection<CartItem> CartItems { get; private set; } = new List<CartItem>();
     public decimal TotalPrice => CartItems.Sum(x => x.UnitPrice * x.Quantity);
     public Cart(int userId)
     {
-        if (userId <= 0)
-        {
-            throw new ArgumentException("UserId is invalid !!");
-        }
         UserId = userId;
         CreatedAt = DateTime.Now;
         UpdatedAt = DateTime.Now;
     }
-    public void RemoveItem(CartItem item)
+    public static Result<Cart> Create(int userId)
+    {
+        if (userId <= 0)
+        {
+            return Result<Cart>.Failure("UserId is invalid !!", ResultErrorType.BadRequest);
+        }
+        return Result<Cart>.Success(new Cart(userId));
+    }
+    public Result RemoveItem(CartItem item)
     {
         if (item == null)
         {
-            throw new ArgumentNullException(nameof(item));
+            return Result.Failure("CartItem is invalid !!", ResultErrorType.BadRequest);
         }
         CartItems.Remove(item);
         UpdatedAt = DateTime.Now;
+        return Result.Success();
     }
-    public void Clear()
+    public Result Clear()
     {
         CartItems.Clear();
         UpdatedAt = DateTime.Now;
+        return Result.Success();
     }
-    public void AddItem(CartItem cartItem)
+    public Result AddItem(CartItem cartItem)
     {
         if (cartItem == null)
         {
-            throw new ArgumentNullException(nameof(cartItem));
+            return Result.Failure("CartItem is invalid !!", ResultErrorType.BadRequest);
         }
         CartItems.Add(cartItem);
         UpdatedAt = DateTime.Now;
+        return Result.Success();
     }
 }

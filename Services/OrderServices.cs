@@ -2,6 +2,8 @@
 using Shahbazi.Store.Data;
 using Shahbazi.Store.Enums;
 using Shahbazi.Store.Models;
+using Shahbazi.Store.ResultPattern;
+
 namespace Shahbazi.Store.Services;
 
 public class OrderServices
@@ -9,95 +11,119 @@ public class OrderServices
     private readonly AppDbContext _context;
     private readonly ProductServices _productServices;
     private readonly CartServices _cartServices;
-    public OrderServices(
-        AppDbContext context,
-        CartServices cartServices,
-        ProductServices productServices)
+    public OrderServices(AppDbContext context, CartServices cartServices, ProductServices productServices)
     {
         _context = context;
         _cartServices = cartServices;
         _productServices = productServices;
     }
-    public Order? GetOrder(int orderId)
+    public Result<Order> GetOrder(int orderId)
     {
-        return _context.Orders
-            .Include(o => o.OrderItems)
-            .FirstOrDefault(o => o.Id == orderId);
-    }
-    public Order CreateOrder(int userId, string shippingAddress)
-    {
-        var cart = _cartServices.GetCart(userId);
-
-        if (cart == null)
+        var order = _context.Orders.Include(o => o.OrderItems).FirstOrDefault(o => o.Id == orderId);
+        if (order == null)
         {
-            throw new InvalidOperationException("Cart didn't find !!");
+            return Result<Order>.Failure("Order didn't find !!", ResultErrorType.NotFound);
         }
-
+        return Result<Order>.Success(order);
+    }
+    public Result<Order> CreateOrder(int userId, string shippingAddress)
+    {
+        var cartResult = _cartServices.GetCart(userId);
+        if (!cartResult.IsSuccess)
+        {
+            return Result<Order>.Failure(cartResult.Error!, cartResult.ErrorType);
+        }
+        var cart = cartResult.Value!;
         if (!cart.CartItems.Any())
         {
-            throw new InvalidOperationException("Cart is Empty !!");
+            return Result<Order>.Failure("Cart is Empty !!", ResultErrorType.BadRequest);
         }
         foreach (var cartItem in cart.CartItems)
         {
-            var product = _productServices.GetProduct(cartItem.ProductId);
-
-            if (product == null)
+            var productResult = _productServices.GetProduct(cartItem.ProductId);
+            if (!productResult.IsSuccess)
             {
-                throw new InvalidOperationException("Product didn't find !!");
+                return Result<Order>.Failure(productResult.Error!, productResult.ErrorType);
             }
-
+            var product = productResult.Value!;
             if (cartItem.Quantity > product.Stock)
             {
-                throw new InvalidOperationException("Not enough Stock !!");
+                return Result<Order>.Failure("Not enough Stock !!", ResultErrorType.Conflict);
             }
         }
-        var order = new Order(userId, shippingAddress);
+        var orderResult = Order.Create(userId, shippingAddress);
+        if (!orderResult.IsSuccess)
+        {
+            return orderResult;
+        }
+        var order = orderResult.Value!;
         _context.Orders.Add(order);
         _context.SaveChanges();
         foreach (var cartItem in cart.CartItems)
         {
-            var product = _productServices.GetProduct(cartItem.ProductId);
-            var orderItem = new OrderItem(
-                order.Id,
-                product!.Id,
-                cartItem.Quantity,
-                cartItem.UnitPrice);
-            order.AddItem(orderItem);
-            product.DecreaseStock(cartItem.Quantity);
+            var productResult = _productServices.GetProduct(cartItem.ProductId);
+            if (!productResult.IsSuccess)
+            {
+                return Result<Order>.Failure(productResult.Error!, productResult.ErrorType);
+            }
+            var product = productResult.Value!;
+            var orderItemResult = OrderItem.Create(order.Id, product.Id, cartItem.Quantity, cartItem.UnitPrice);
+            if (!orderItemResult.IsSuccess)
+            {
+                return Result<Order>.Failure(orderItemResult.Error!, orderItemResult.ErrorType);
+            }
+            var addItemResult =
+                order.AddItem(orderItemResult.Value!);
+            if (!addItemResult.IsSuccess)
+            {
+                return Result<Order>.Failure(addItemResult.Error!, addItemResult.ErrorType);
+            }
+            var decreaseResult = product.DecreaseStock(cartItem.Quantity);
+            if (!decreaseResult.IsSuccess)
+            {
+                return Result<Order>.Failure(decreaseResult.Error!, decreaseResult.ErrorType);
+            }
         }
         cart.Clear();
         _context.SaveChanges();
-        return order;
+        return Result<Order>.Success(order);
     }
-    public void CancelOrder(int orderId)
+    public Result CancelOrder(int orderId)
     {
-        var order = GetOrder(orderId);
-        if (order == null)
+        var orderResult = GetOrder(orderId);
+        if (!orderResult.IsSuccess)
         {
-            throw new InvalidOperationException("Order didn't find !!");
+            return Result.Failure(orderResult.Error!, orderResult.ErrorType);
         }
-        order.Cancel();
+        var result = orderResult.Value!.Cancel();
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
         _context.SaveChanges();
+        return Result.Success();
     }
-    public List<Order> GetUserOrder(int userId)
+    public Result<List<Order>> GetUserOrder(int userId)
     {
         if (userId <= 0)
         {
-            throw new ArgumentException("userId Is Invalid !!");
+            return Result<List<Order>>.Failure("userId Is Invalid !!", ResultErrorType.BadRequest);
         }
-        return _context.Orders
-            .Include(o => o.OrderItems)
-            .Where(o => o.UserId == userId)
-            .ToList();
+        return Result<List<Order>>.Success(_context.Orders.Include(o => o.OrderItems).Where(o => o.UserId == userId).ToList());
     }
-    public void ChangeOrderStatus(int orderId, OrderStatus status)
+    public Result ChangeOrderStatus(int orderId, OrderStatus status)
     {
-        var order = GetOrder(orderId);
-        if (order == null)
+        var orderResult = GetOrder(orderId);
+        if (!orderResult.IsSuccess)
         {
-            throw new InvalidOperationException("Order Didn't find !!");
+            return Result.Failure(orderResult.Error!, orderResult.ErrorType);
         }
-        order.ChangeOrderStatus(status);
+        var result = orderResult.Value!.ChangeOrderStatus(status);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
         _context.SaveChanges();
+        return Result.Success();
     }
 }

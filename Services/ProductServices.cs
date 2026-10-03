@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Shahbazi.Store.ResultPattern;
 using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs;
 using Shahbazi.Store.Models;
@@ -8,182 +9,141 @@ namespace Shahbazi.Store.Services;
 public class ProductServices
 {
     private readonly AppDbContext _context;
-
     public ProductServices(AppDbContext context)
     {
         _context = context;
     }
-
-    public void AddProduct(
-        string productName,
-        decimal productPrice,
-        string? productDescription,
-        int stock)
+    public Result<Product> AddProduct(string name, decimal price, string? description, int stock)
     {
-        var product = new Product(
-            productName,
-            productPrice,
-            productDescription,
-            stock);
-
+        var productResult = Product.Create(name, price, description, stock);
+        if (!productResult.IsSuccess)
+        {
+            return productResult;
+        }
+        var product = productResult.Value!;
         _context.Products.Add(product);
         _context.SaveChanges();
+        return Result<Product>.Success(product);
     }
-
-    public List<Product> GetAllProducts()
+    public Result<List<Product>> GetAllProducts()
     {
-        return _context.Products.ToList();
+        return Result<List<Product>>.Success(_context.Products.ToList());
     }
-
-    public List<Product> SearchProducts(string search)
+    public Result<List<Product>> SearchProducts(string search)
     {
         if (string.IsNullOrWhiteSpace(search))
         {
             return GetAllProducts();
         }
-
-        return _context.Products
-            .Where(p =>
-                p.ProductName.Contains(search) ||
-                (p.ProductDescription != null &&
-                 p.ProductDescription.Contains(search)))
-            .ToList();
+        return Result<List<Product>>.Success(_context.Products.Where(p => p.Name.Contains(search) || (p.Description != null && p.Description.Contains(search))).ToList());
     }
-
-    public PagedResult<Product> GetProducts(int page, int pageSize)
+    public Result<PagedResult<Product>> GetProducts(int page, int pageSize)
     {
         if (page < 1)
         {
-            throw new ArgumentException("Page must be greater than 0");
+            return Result<PagedResult<Product>>.Failure("Page must be greater than 0", ResultErrorType.BadRequest);
         }
-
         if (pageSize < 1)
         {
-            throw new ArgumentException("PageSize most be greater than 0");
+            return Result<PagedResult<Product>>.Failure("PageSize most be greater than 0", ResultErrorType.BadRequest);
         }
-
         var totalItems = _context.Products.Count();
-
-        var totalPages =
-            (int)Math.Ceiling((double)totalItems / pageSize);
-
-        var items = _context.Products
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToList();
-
-        return new PagedResult<Product>
-        {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems,
-            TotalPages = totalPages
-        };
+        var totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+        var items = _context.Products.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Result<PagedResult<Product>>.Success(
+            new PagedResult<Product>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                TotalPages = totalPages
+            });
     }
-
-    public Product? GetProduct(int id)
+    public Result<Product> GetProduct(int id)
     {
-        return _context.Products
-            .FirstOrDefault(p => p.Id == id);
-    }
-
-    public void DeleteProduct(int id)
-    {
-        var product = GetProduct(id);
-
+        var product = _context.Products.FirstOrDefault(p => p.Id == id);
         if (product == null)
         {
-            throw new InvalidOperationException(
-                "Product didn't find !!");
+            return Result<Product>.Failure("Product didn't find !!", ResultErrorType.NotFound);
         }
-
-        _context.Products.Remove(product);
-        _context.SaveChanges();
+        return Result<Product>.Success(product);
     }
-
-    public void IncreaseStock(int productId, int amount)
+    public Result DeleteProduct(int id)
     {
-        var product = GetProduct(productId);
-
-        if (product == null)
+        var productResult = GetProduct(id);
+        if (!productResult.IsSuccess)
         {
-            throw new InvalidOperationException(
-                "Product didn't find !!");
+            return Result.Failure(productResult.Error!, productResult.ErrorType);
         }
-
-        product.IncreaseStock(amount);
+        _context.Products.Remove(productResult.Value!);
         _context.SaveChanges();
+        return Result.Success();
     }
-
-    public void DecreaseStock(int productId, int amount)
+    public Result IncreaseStock(int productId, int amount)
     {
-        var product = GetProduct(productId);
-
-        if (product == null)
+        var productResult = GetProduct(productId);
+        if (!productResult.IsSuccess)
         {
-            throw new InvalidOperationException(
-                "Product didn't find !!");
+            return Result.Failure(productResult.Error!, productResult.ErrorType);
         }
-
-        product.DecreaseStock(amount);
+        var result = productResult.Value!.IncreaseStock(amount);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
         _context.SaveChanges();
+        return Result.Success();
     }
-
-    public void UpdateProduct(
-        int id,
-        string productName,
-        decimal productPrice,
-        string productDescription)
+    public Result DecreaseStock(int productId, int amount)
     {
-        var product = GetProduct(id);
-
-        if (product == null)
+        var productResult = GetProduct(productId);
+        if (!productResult.IsSuccess)
         {
-            throw new InvalidOperationException(
-                "Product didn't find !!");
+            return Result.Failure(productResult.Error!, productResult.ErrorType);
         }
-
-        product.UpdateInformation(
-            productName,
-            productPrice,
-            productDescription);
-
+        var result = productResult.Value!.DecreaseStock(amount);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
         _context.SaveChanges();
+        return Result.Success();
     }
-
-    public List<Product> FilterProducts(
-        decimal? minPrice,
-        decimal? maxPrice)
+    public Result UpdateProduct(int id, string name, decimal price, string description)
+    {
+        var productResult = GetProduct(id);
+        if (!productResult.IsSuccess)
+        {
+            return Result.Failure(productResult.Error!, productResult.ErrorType);
+        }
+        var result = productResult.Value!.UpdateInformation(name, price, description);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+        _context.SaveChanges();
+        return Result.Success();
+    }
+    public Result<List<Product>> FilterProducts(decimal? minPrice, decimal? maxPrice)
     {
         var products = _context.Products.AsEnumerable();
-
         if (minPrice.HasValue)
         {
-            products = products.Where(
-                p => p.ProductPrice >= minPrice.Value);
+            products = products.Where(p => p.Price >= minPrice.Value);
         }
-
         if (maxPrice.HasValue)
         {
-            products = products.Where(
-                p => p.ProductPrice <= maxPrice.Value);
+            products = products.Where(p => p.Price <= maxPrice.Value);
         }
-
-        return products.ToList();
+        return Result<List<Product>>.Success(products.ToList());
     }
-
-    public List<Product> SortProducts(bool ascending)
+    public Result<List<Product>> SortProducts(bool ascending)
     {
         if (ascending)
         {
-            return _context.Products
-                .OrderBy(p => p.ProductPrice)
-                .ToList();
+            return Result<List<Product>>.Success(_context.Products.OrderBy(p => p.Price).ToList());
         }
-
-        return _context.Products
-            .OrderByDescending(p => p.ProductPrice)
-            .ToList();
+        return Result<List<Product>>.Success(_context.Products.OrderByDescending(p => p.Price).ToList());
     }
 }

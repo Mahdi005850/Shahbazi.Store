@@ -1,5 +1,7 @@
 ﻿using Shahbazi.Store.Data;
 using Shahbazi.Store.Models;
+using Shahbazi.Store.ResultPattern;
+
 namespace Shahbazi.Store.Services;
 
 public class UserServices
@@ -9,37 +11,54 @@ public class UserServices
     {
         _context = context;
     }
-    public User? GetUser(int userId)
+    public Result<User> GetUser(int userId)
     {
-        return _context.Users.FirstOrDefault(u => u.Id == userId);
+        var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+        if (user == null)
+        {
+            return Result<User>.Failure("User didn't finnd !!", ResultErrorType.NotFound);
+        }
+        return Result<User>.Success(user);
     }
-    public void AddUser(string fullName, string phoneNumber, string address)
+    public Result<User> AddUser(string fullName, string phoneNumber, string address)
     {
+        if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(phoneNumber) || string.IsNullOrWhiteSpace(address))
+        {
+            return Result<User>.Failure("User information cannot be empty !!", ResultErrorType.BadRequest);
+        }
         var user = new User(fullName, phoneNumber, address);
         _context.Users.Add(user);
         _context.SaveChanges();
+        return Result<User>.Success(user);
     }
-    public List<User> GetAllUsers()
+    public Result<List<User>> GetAllUsers()
     {
-        return _context.Users.ToList();
+        return Result<List<User>>.Success(_context.Users.ToList());
     }
-    public void UpdateUser(int userId, string fullName, string phoneNumber, string adddress)
+    public Result UpdateUser(int userId, string fullName, string phoneNumber, string adddress)
     {
-        var user = GetUser(userId);
-        if (user == null)
+        var userResult = GetUser(userId);
+        if (!userResult.IsSuccess)
         {
-            throw new InvalidOperationException("User didn't finnd !!");
+            return Result.Failure(userResult.Error!, userResult.ErrorType);
         }
-        user.UpdateInformation(fullName, phoneNumber, adddress);
+        if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(phoneNumber) || string.IsNullOrWhiteSpace(adddress))
+        {
+            return Result.Failure("User information cannot be empty !!", ResultErrorType.BadRequest);
+        }
+        userResult.Value!.UpdateInformation(fullName, phoneNumber, adddress);
         _context.SaveChanges();
+        return Result.Success();
     }
-    public void DeleteUser(int userId)
+    public Result DeleteUser(int userId)
     {
-        var user = GetUser(userId);
-        if (user == null)
+        var userResult = GetUser(userId);
+        if (!userResult.IsSuccess)
         {
-            throw new InvalidOperationException("User didn't find !!");
+            return Result.Failure(userResult.Error!, userResult.ErrorType);
         }
-        _context.Users.Remove(user);
+        _context.Users.Remove(userResult.Value!);
+        _context.SaveChanges();
+        return Result.Success();
     }
 }
