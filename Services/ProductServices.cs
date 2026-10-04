@@ -4,6 +4,7 @@ using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs;
 using Shahbazi.Store.Models;
 using Shahbazi.Store.DTOs.Responses;
+using Shahbazi.Store.DTOs.Requests;
 
 namespace Shahbazi.Store.Services;
 
@@ -14,6 +15,22 @@ public class ProductServices
     {
         _context = context;
     }
+
+    public Result<ProductGetResponse> Create(ProductCreateRequest request)
+    {
+        var validationResult = request.Validate();
+        if (validationResult.IsValid is false)
+        {
+            return Result<ProductGetResponse>.Failure("Validation failed", ResultErrorType.BadRequest);
+        }
+
+        var product = request.ToModel();
+
+        _context.Products.Add(product);
+        _context.SaveChanges();
+        return Result<ProductGetResponse>.Success(product.ToResponse());
+    }
+
     public Result<Product> AddProduct(string name, decimal price, string? description, int stock)
     {
         var productResult = Product.Create(name, price, description, stock);
