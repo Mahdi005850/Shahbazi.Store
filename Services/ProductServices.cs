@@ -3,6 +3,7 @@ using Shahbazi.Store.ResultPattern;
 using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs;
 using Shahbazi.Store.Models;
+using Shahbazi.Store.DTOs.Responses;
 
 namespace Shahbazi.Store.Services;
 
@@ -69,6 +70,18 @@ public class ProductServices
         }
         return Result<Product>.Success(product);
     }
+
+    public Result<ProductGetResponse> GetProductResponse(int id)
+    {
+        var product = _context.Products.SingleOrDefault(p => p.Id == id);
+        if (product is null)
+        {
+            return Result<ProductGetResponse>.Failure("Product didn't find !!", ResultErrorType.NotFound);
+        }
+
+        return Result<ProductGetResponse>.Success(product.ToResponse());
+    }
+
     public Result DeleteProduct(int id)
     {
         var productResult = GetProduct(id);
