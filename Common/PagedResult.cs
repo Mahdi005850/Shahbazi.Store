@@ -1,4 +1,4 @@
-﻿namespace Shahbazi.Store.DTOs;
+﻿namespace Shahbazi.Store.Common;
 
 public class PagedResult<T>
 {

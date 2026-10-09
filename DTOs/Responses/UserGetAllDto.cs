@@ -1,6 +1,6 @@
-﻿namespace Shahbazi.Store.DTOs;
+﻿namespace Shahbazi.Store.DTOs.Responses;
 
-public class UserGetDto
+public class UserGetAllDto
 {
     public int Id { get; set; }
     public string FullName { get; set; } = string.Empty;

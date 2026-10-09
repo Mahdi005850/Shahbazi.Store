@@ -1,10 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Shahbazi.Store.ResultPattern;
 using Shahbazi.Store.Data;
-using Shahbazi.Store.DTOs;
 using Shahbazi.Store.Models;
 using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.DTOs.Requests;
+using Shahbazi.Store.Common.ResultPattern;
+using Shahbazi.Store.Common;
 
 namespace Shahbazi.Store.Services;
 

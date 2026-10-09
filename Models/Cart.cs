@@ -1,4 +1,4 @@
-﻿using Shahbazi.Store.ResultPattern;
+﻿using Shahbazi.Store.Common.ResultPattern;
 
 namespace Shahbazi.Store.Models;
 

@@ -1,5 +1,5 @@
-﻿using Shahbazi.Store.DTOs;
-using Shahbazi.Store.ResultPattern;
+﻿using Shahbazi.Store.Common.ResultPattern;
+using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.Services;
 
 namespace Shahbazi.Store.EndPoints;

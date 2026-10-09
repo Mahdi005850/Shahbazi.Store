@@ -1,5 +1,5 @@
-﻿using Shahbazi.Store.Enums;
-using Shahbazi.Store.ResultPattern;
+﻿using Shahbazi.Store.Common.Enums;
+using Shahbazi.Store.Common.ResultPattern;
 
 namespace Shahbazi.Store.Models;
 

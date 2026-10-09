@@ -1,4 +1,4 @@
-﻿namespace Shahbazi.Store.ResultPattern;
+﻿namespace Shahbazi.Store.Common.ResultPattern;
 
 public class Result
 {
