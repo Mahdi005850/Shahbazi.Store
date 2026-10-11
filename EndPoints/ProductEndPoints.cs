@@ -1,5 +1,4 @@
 ﻿using Shahbazi.Store.Services;
-using global::Shahbazi.Store.ResultPattern;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.DTOs.Requests;
 
@@ -10,7 +9,7 @@ internal static class ProductEndPoints
 {
     public static void MapProductEndPoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/products", (ProductCreateDto dto, ProductServices productServices) =>
+        app.MapPost("/api/products", (ProductCreateRequest dto, ProductServices productServices) =>
         {
             var result = productServices.AddProduct(dto.Name, dto.Price, dto.Description, dto.Stock);
             if (!result.IsSuccess)

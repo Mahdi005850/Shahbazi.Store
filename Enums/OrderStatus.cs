@@ -1,4 +1,4 @@
-﻿namespace Shahbazi.Store.Common.Enums;
+﻿namespace Shahbazi.Store.Enums;
 
 public enum OrderStatus
 {

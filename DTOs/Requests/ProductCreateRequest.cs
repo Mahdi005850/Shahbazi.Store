@@ -1,13 +1,9 @@
+using Shahbazi.Store.Common;
 using Shahbazi.Store.Models;
 
 namespace Shahbazi.Store.DTOs.Requests;
 
-public record ProductCreateRequest(
-    string Name,
-    decimal Price,
-    string? Description,
-    int Stock
-);
+public record ProductCreateRequest(string Name, decimal Price, string? Description, int Stock);
 
 internal static class ProductCreateRequestExtensions
 {
@@ -15,7 +11,6 @@ internal static class ProductCreateRequestExtensions
     {
         return new Product(request.Name, request.Price, request.Description, request.Stock);
     }
-    
     public static ValidationResult Validate(this ProductCreateRequest request)
     {
         var errors = new List<ValidationResult.ValidationError>();
@@ -36,28 +31,5 @@ internal static class ProductCreateRequestExtensions
         }
 
         return new ValidationResult(errors.ToArray());
-    }
-}
-
-public class ValidationResult
-{
-    public class ValidationError
-    {
-        public string PropertyName { get; }
-        public string ErrorMessage { get; }
-
-        public ValidationError(string propertyName, string errorMessage)
-        {
-            PropertyName = propertyName;
-            ErrorMessage = errorMessage;
-        }
-    }
-
-    public bool IsValid => Errors.Length == 0;
-    public ValidationError[] Errors { get; }
-
-    public ValidationResult(ValidationError[] error)
-    {
-        Errors = error;
     }
 }

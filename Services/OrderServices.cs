@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Shahbazi.Store.Common.Enums;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Data;
+using Shahbazi.Store.Enums;
 using Shahbazi.Store.Models;
 
 namespace Shahbazi.Store.Services;

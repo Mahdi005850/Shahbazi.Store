@@ -1,6 +1,6 @@
 ﻿using Shahbazi.Store.Common.ResultPattern;
-using Shahbazi.Store.DTOs;
 using Shahbazi.Store.DTOs.Requests;
+using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Services;
 
 namespace Shahbazi.Store.EndPoints;
@@ -47,7 +47,7 @@ internal static class UserEndPoints
             };
             return Results.Ok(result);
         });
-        app.MapPut("/api/users/{id}", (int id, UserUpdateDto dto, UserServices userServices) =>
+        app.MapPut("/api/users/{id}", (int id, UserUpdateRequest dto, UserServices userServices) =>
         {
             var result = userServices.UpdateUser(id, dto.FullName, dto.PhoneNumber, dto.Address);
             if (!result.IsSuccess)
@@ -67,7 +67,7 @@ internal static class UserEndPoints
             {
                 return Results.NotFound(result.Error);
             }
-            var deleteResult = new UserDeleteDto
+            var deleteResult = new UserDeleteRequest
             {
                 Id = id
             };
