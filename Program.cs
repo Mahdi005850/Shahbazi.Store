@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Shahbazi.Store.Data;
-using Shahbazi.Store.EndPoints;
 using Shahbazi.Store.Services;
 using System.Text.Json.Serialization;
 
@@ -30,12 +29,12 @@ app.UseSwaggerUI();
 
 app.MapGet("/", () => "Shahbazi Store API Is running !!");
 
-app.MapProductEndPoints();
+app.MapProductEndpoints();
 
-app.MapUserEndPoints();
+app.MapUserEndpoints();
 
 app.MapCartEndpoints();
 
-app.MapOrdersEndPoints();
+app.MapOrderEndpoints();
 
 app.Run();

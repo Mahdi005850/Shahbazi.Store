@@ -1,71 +1,57 @@
-﻿using Shahbazi.Store.Common.ResultPattern;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.Enums;
 using Shahbazi.Store.Services;
 
-namespace Shahbazi.Store.EndPoints;
-
-internal static class OrderEndpoints
+public static class OrderEndpoints
 {
-    public static void MapOrdersEndPoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapOrderEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/orders/{userId}", (int userId, OrderCreateDto dto, OrderServices orderServices) =>
-            {
-                var result = orderServices.CreateOrder(userId, dto.ShippingAddress);
-                if (!result.IsSuccess)
-                {
-                    if (result.ErrorType == ResultErrorType.NotFound)
-                    {
-                        return Results.NotFound(result.Error);
-                    }
-                    if (result.ErrorType == ResultErrorType.Conflict)
-                    {
-                        return Results.Conflict(result.Error);
-                    }
-                    return Results.BadRequest(result.Error);
-                }
-                return Results.Ok("Order Created Successfully !!");
-            });
-        app.MapGet("/api/orders/{id}", (int id, OrderServices orderServices) =>
-            {
-                var result = orderServices.GetOrder(id);
-                if (!result.IsSuccess)
-                {
-                    return Results.NotFound(result.Error);
-                }
-                return Results.Ok(result.Value);
-            });
-        app.MapGet("/api/users/{userId}/orders", (int userId, OrderServices orderServices) =>
-            {
-                var result = orderServices.GetUserOrder(userId);
-                if (!result.IsSuccess)
-                {
-                    return Results.BadRequest(result.Error);
-                }
-                return Results.Ok(result.Value);
-            });
-        app.MapPut("/api/orders/{id}/cancel", (int id, OrderServices orderServices) =>
-            {
-                var result = orderServices.CancelOrder(id);
-                if (!result.IsSuccess)
-                {
-                    if (result.ErrorType == ResultErrorType.NotFound)
-                    {
-                        return Results.NotFound(result.Error);
-                    }
-                    return Results.Conflict(result.Error);
-                }
-                return Results.Ok("Order Cancelled Successfully !!");
-            });
-        app.MapPut("/api/orders/{id}/status",
-            (int id, OrderStatus status, OrderServices orderServices) =>
-            {
-                var result = orderServices.ChangeOrderStatus(id, status);
-                if (!result.IsSuccess)
-                {
-                    return Results.NotFound(result.Error);
-                }
-                return Results.Ok("Order Status Changed Successfully !!");
-            });
+        var group = app.MapGroup("/api/orders");
+
+        group.MapPost("/{userId:int}", (int userId, OrderCreateRequest request, OrderServices service) => ToHttpResult(service.CreateOrder(userId, request.ShippingAddress)));
+
+        group.MapGet("/{id:int}", (int id, OrderServices service) => ToHttpResult(service.GetOrder(id)));
+
+        group.MapGet("/users/{userId:int}", (int userId, OrderServices service) => ToHttpResult(service.GetUserOrder(userId)));
+
+        group.MapPut("/{id:int}/cancel", (int id, OrderServices service) => ToHttpResult(service.CancelOrder(id)));
+
+        group.MapPut("/{id:int}/status", (int id, OrderStatus status, OrderServices service) => ToHttpResult(service.ChangeOrderStatus(id, status)));
+
+        return app;
+    }
+
+    private static IResult ToHttpResult<T>(Result<T> result)
+    {
+        if (result.IsSuccess)
+            return TypedResults.Ok(result.Value);
+
+        return result.ErrorType switch
+        {
+            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
+            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
+            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
+            _ => TypedResults.Problem(result.Error)
+        };
+    }
+
+    private static IResult ToHttpResult(Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return TypedResults.Ok(new { message = "Operation completed successfully" });
+        }
+
+        return result.ErrorType switch
+        {
+            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
+            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
+            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
+            _ => TypedResults.Problem(result.Error)
+        };
     }
 }

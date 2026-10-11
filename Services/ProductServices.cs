@@ -1,179 +1,199 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Shahbazi.Store.Data;
-using Shahbazi.Store.Models;
-using Shahbazi.Store.DTOs.Responses;
-using Shahbazi.Store.DTOs.Requests;
-using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Common;
+using Shahbazi.Store.Common.ResultPattern;
+using Shahbazi.Store.Data;
+using Shahbazi.Store.DTOs.Requests;
+using Shahbazi.Store.DTOs.Responses;
+using Shahbazi.Store.Models;
 
 namespace Shahbazi.Store.Services;
 
 public class ProductServices
 {
     private readonly AppDbContext _context;
+
     public ProductServices(AppDbContext context)
     {
         _context = context;
     }
 
-    public Result<ProductGetResponse> Create(ProductCreateRequest request)
+    public Result<ProductGetResponse> AddProduct(string name, decimal price, string? description, int stock)
     {
-        var validationResult = request.Validate();
-        if (validationResult.IsValid is false)
+        var request = new ProductCreateRequest(name, price, description, stock);
+        var validation = request.Validate();
+
+        if (!validation.IsValid)
         {
-            return Result<ProductGetResponse>.Failure("Validation failed", ResultErrorType.BadRequest);
+            return Result<ProductGetResponse>.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ResultErrorType.BadRequest);
         }
 
-        var product = request.ToModel();
-
-        _context.Products.Add(product);
-        _context.SaveChanges();
-        return Result<ProductGetResponse>.Success(product.ToResponse());
-    }
-
-    public Result<Product> AddProduct(string name, decimal price, string? description, int stock)
-    {
         var productResult = Product.Create(name, price, description, stock);
+
         if (!productResult.IsSuccess)
         {
-            return productResult;
+            return Result<ProductGetResponse>.Failure(productResult.Error!, productResult.ErrorType);
         }
+
         var product = productResult.Value!;
+
         _context.Products.Add(product);
         _context.SaveChanges();
-        return Result<Product>.Success(product);
-    }
-    public Result<List<Product>> GetAllProducts()
-    {
-        return Result<List<Product>>.Success(_context.Products.ToList());
-    }
-    public Result<List<Product>> SearchProducts(string search)
-    {
-        if (string.IsNullOrWhiteSpace(search))
-        {
-            return GetAllProducts();
-        }
-        return Result<List<Product>>.Success(_context.Products.Where(p => p.Name.Contains(search) || (p.Description != null && p.Description.Contains(search))).ToList());
-    }
-    public Result<PagedResult<Product>> GetProducts(int page, int pageSize)
-    {
-        if (page < 1)
-        {
-            return Result<PagedResult<Product>>.Failure("Page must be greater than 0", ResultErrorType.BadRequest);
-        }
-        if (pageSize < 1)
-        {
-            return Result<PagedResult<Product>>.Failure("PageSize most be greater than 0", ResultErrorType.BadRequest);
-        }
-        var totalItems = _context.Products.Count();
-        var totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
-        var items = _context.Products.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        return Result<PagedResult<Product>>.Success(
-            new PagedResult<Product>
-            {
-                Items = items,
-                Page = page,
-                PageSize = pageSize,
-                TotalItems = totalItems,
-                TotalPages = totalPages
-            });
-    }
-    public Result<Product> GetProduct(int id)
-    {
-        var product = _context.Products.FirstOrDefault(p => p.Id == id);
-        if (product == null)
-        {
-            return Result<Product>.Failure("Product didn't find !!", ResultErrorType.NotFound);
-        }
-        return Result<Product>.Success(product);
+
+        return Result<ProductGetResponse>.Success(ToGetResponse(product));
     }
 
-    public Result<ProductGetResponse> GetProductResponse(int id)
+    public Result<List<ProductGetAllResponse>> GetAllProducts()
     {
-        var product = _context.Products.SingleOrDefault(p => p.Id == id);
+        var products = _context.Products.AsNoTracking().ToList();
+
+        return Result<List<ProductGetAllResponse>>.Success(products.Select(ToGetAllResponse).ToList());
+    }
+
+    public Result<ProductGetResponse> GetProduct(int id)
+    {
+        if (id <= 0)
+        {
+            return Result<ProductGetResponse>.Failure("Product id is invalid", ResultErrorType.BadRequest);
+        }
+
+        var product = _context.Products.AsNoTracking().FirstOrDefault(p => p.Id == id);
+
         if (product is null)
         {
             return Result<ProductGetResponse>.Failure("Product didn't find !!", ResultErrorType.NotFound);
         }
 
-        return Result<ProductGetResponse>.Success(product.ToResponse());
+        return Result<ProductGetResponse>.Success(ToGetResponse(product));
     }
 
     public Result DeleteProduct(int id)
     {
-        var productResult = GetProduct(id);
-        if (!productResult.IsSuccess)
+        var product = _context.Products.FirstOrDefault(p => p.Id == id);
+
+        if (product is null)
         {
-            return Result.Failure(productResult.Error!, productResult.ErrorType);
+            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
         }
-        _context.Products.Remove(productResult.Value!);
+
+        _context.Products.Remove(product);
         _context.SaveChanges();
+
         return Result.Success();
     }
-    public Result IncreaseStock(int productId, int amount)
+
+    public Result UpdateProduct(int id, string name, decimal price, string? description)
     {
-        var productResult = GetProduct(productId);
-        if (!productResult.IsSuccess)
+        var product = _context.Products.FirstOrDefault(p => p.Id == id);
+
+        if (product is null)
         {
-            return Result.Failure(productResult.Error!, productResult.ErrorType);
+            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
         }
-        var result = productResult.Value!.IncreaseStock(amount);
+
+        var request = new ProductUpdateRequest(name, price, description);
+        var validation = request.Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ResultErrorType.BadRequest);
+        }
+
+        var result = product.UpdateInformation(name, price, description);
+
         if (!result.IsSuccess)
         {
             return result;
         }
+
         _context.SaveChanges();
         return Result.Success();
     }
-    public Result DecreaseStock(int productId, int amount)
+
+    public Result IncreaseStock(int productId, int amount) => ChangeStock(productId, amount, true);
+
+    public Result DecreaseStock(int productId, int amount) => ChangeStock(productId, amount, false);
+
+    private Result ChangeStock(int productId, int amount, bool increase)
     {
-        var productResult = GetProduct(productId);
-        if (!productResult.IsSuccess)
+        var product = _context.Products.FirstOrDefault(p => p.Id == productId);
+
+        if (product is null)
         {
-            return Result.Failure(productResult.Error!, productResult.ErrorType);
+            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
         }
-        var result = productResult.Value!.DecreaseStock(amount);
-        if (!result.IsSuccess)
-        {
-            return result;
-        }
+
+        var result = increase ? product.IncreaseStock(amount) : product.DecreaseStock(amount);
+        if (!result.IsSuccess) return result;
+
         _context.SaveChanges();
         return Result.Success();
     }
-    public Result UpdateProduct(int id, string name, decimal price, string description)
+
+    private static ProductGetResponse ToGetResponse(Product product) => new(product.Id, product.Name, product.Price.ToString("F2"), product.Description, product.Stock);
+
+    private static ProductGetAllResponse ToGetAllResponse(Product product) => new(product.Id, product.Name, product.Price.ToString("F2"), product.Description, product.Stock);
+
+
+    public Result<PagedResult<ProductGetAllResponse>> GetProducts(int page, int pageSize)
     {
-        var productResult = GetProduct(id);
-        if (!productResult.IsSuccess)
+        if (page < 1)
         {
-            return Result.Failure(productResult.Error!, productResult.ErrorType);
+            return Result<PagedResult<ProductGetAllResponse>>.Failure("Page must be greater than 0", ResultErrorType.BadRequest);
         }
-        var result = productResult.Value!.UpdateInformation(name, price, description);
-        if (!result.IsSuccess)
+
+        if (pageSize < 1)
         {
-            return result;
+            return Result<PagedResult<ProductGetAllResponse>>.Failure("PageSize must be greater than 0", ResultErrorType.BadRequest);
         }
-        _context.SaveChanges();
-        return Result.Success();
+
+        var query = _context.Products.AsNoTracking().OrderBy(p => p.Id);
+
+        var totalItems = query.Count();
+
+        var totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+
+        var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToList().Select(ToGetAllResponse).ToList();
+
+        return Result<PagedResult<ProductGetAllResponse>>.Success(new PagedResult<ProductGetAllResponse>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems,
+            TotalPages = totalPages
+        });
     }
-    public Result<List<Product>> FilterProducts(decimal? minPrice, decimal? maxPrice)
+
+    public Result<List<ProductGetAllResponse>> SearchProducts(string search)
     {
-        var products = _context.Products.AsEnumerable();
-        if (minPrice.HasValue)
+        var query = _context.Products.AsNoTracking().AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
         {
-            products = products.Where(p => p.Price >= minPrice.Value);
+            search = search.Trim();
+            query = query.Where(p => p.Name.Contains(search) || (p.Description != null && p.Description.Contains(search)));
         }
-        if (maxPrice.HasValue)
-        {
-            products = products.Where(p => p.Price <= maxPrice.Value);
-        }
-        return Result<List<Product>>.Success(products.ToList());
+
+        return Result<List<ProductGetAllResponse>>.Success(query.ToList().Select(ToGetAllResponse).ToList());
     }
-    public Result<List<Product>> SortProducts(bool ascending)
+
+    public Result<List<ProductGetAllResponse>> FilterProducts(decimal? minPrice, decimal? maxPrice)
     {
-        if (ascending)
+        if (minPrice.HasValue && maxPrice.HasValue && minPrice.Value > maxPrice.Value)
         {
-            return Result<List<Product>>.Success(_context.Products.OrderBy(p => p.Price).ToList());
+            return Result<List<ProductGetAllResponse>>.Failure("Minimum price cannot be greater than maximum price", ResultErrorType.BadRequest);
         }
-        return Result<List<Product>>.Success(_context.Products.OrderByDescending(p => p.Price).ToList());
+        var query = _context.Products.AsNoTracking().AsQueryable();
+
+        if (minPrice.HasValue) query = query.Where(p => p.Price >= minPrice.Value);
+        if (maxPrice.HasValue) query = query.Where(p => p.Price <= maxPrice.Value);
+
+        return Result<List<ProductGetAllResponse>>.Success(query.ToList().Select(ToGetAllResponse).ToList());
+    }
+
+    public Result<List<ProductGetAllResponse>> SortProducts(bool ascending)
+    {
+        var query = ascending ? _context.Products.AsNoTracking().OrderBy(p => p.Price) : _context.Products.AsNoTracking().OrderByDescending(p => p.Price);
+
+        return Result<List<ProductGetAllResponse>>.Success(query.ToList().Select(ToGetAllResponse).ToList());
     }
 }

@@ -1,4 +1,5 @@
-﻿using Shahbazi.Store.Common;
+﻿using Microsoft.AspNetCore.Identity;
+using Shahbazi.Store.Common;
 
 namespace Shahbazi.Store.DTOs.Requests;
 
@@ -19,7 +20,7 @@ internal static class UserCreateRequestExtensions
         {
             errors.Add(new(nameof(request.PhoneNumber), "Phone number is required."));
         }
-
+     
         if (string.IsNullOrWhiteSpace(request.Address))
         {
             errors.Add(new(nameof(request.Address), "Address is required."));

@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Data;
+using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Enums;
 using Shahbazi.Store.Models;
 
@@ -9,121 +10,170 @@ namespace Shahbazi.Store.Services;
 public class OrderServices
 {
     private readonly AppDbContext _context;
-    private readonly ProductServices _productServices;
     private readonly CartServices _cartServices;
+
     public OrderServices(AppDbContext context, CartServices cartServices, ProductServices productServices)
     {
         _context = context;
         _cartServices = cartServices;
-        _productServices = productServices;
     }
-    public Result<Order> GetOrder(int orderId)
+
+    public Result<OrderGetResponse> GetOrder(int orderId)
     {
-        var order = _context.Orders.Include(o => o.OrderItems).FirstOrDefault(o => o.Id == orderId);
-        if (order == null)
+        var order = GetOrderModel(orderId);
+
+        if (!order.IsSuccess)
         {
-            return Result<Order>.Failure("Order didn't find !!", ResultErrorType.NotFound);
+            return Result<OrderGetResponse>.Failure(order.Error!, order.ErrorType);
         }
-        return Result<Order>.Success(order);
+        return Result<OrderGetResponse>.Success(ToGetResponse(order.Value!));
     }
-    public Result<Order> CreateOrder(int userId, string shippingAddress)
+
+    public Result<List<OrderGetAllResponse>> GetUserOrder(int userId)
     {
-        var cartResult = _cartServices.GetCart(userId);
-        if (!cartResult.IsSuccess)
+        if (userId <= 0)
         {
-            return Result<Order>.Failure(cartResult.Error!, cartResult.ErrorType);
+            return Result<List<OrderGetAllResponse>>.Failure("UserId is invalid !!", ResultErrorType.BadRequest);
         }
-        var cart = cartResult.Value!;
+
+        var orders = _context.Orders.Include(o => o.OrderItems).AsNoTracking().Where(o => o.UserId == userId).ToList();
+
+        return Result<List<OrderGetAllResponse>>.Success(orders.Select(ToGetAllResponse).ToList());
+    }
+
+    public Result<OrderGetResponse> CreateOrder(int userId, string shippingAddress)
+    {
+        if (!_context.Users.Any(u => u.Id == userId))
+        {
+            return Result<OrderGetResponse>.Failure("User didn't find !!", ResultErrorType.NotFound);
+        }
+
+        var cartResult = _context.Carts.Include(c => c.CartItems).FirstOrDefault(c => c.UserId == userId);
+
+        if (cartResult is null)
+        {
+            return Result<OrderGetResponse>.Failure("Cart didn't find !!", ResultErrorType.NotFound);
+        }
+
+        var cart = cartResult;
+
         if (!cart.CartItems.Any())
         {
-            return Result<Order>.Failure("Cart is Empty !!", ResultErrorType.BadRequest);
+            return Result<OrderGetResponse>.Failure("Cart is Empty !!", ResultErrorType.BadRequest);
         }
+
         foreach (var cartItem in cart.CartItems)
         {
-            var productResult = _productServices.GetProduct(cartItem.ProductId);
-            if (!productResult.IsSuccess)
+            var product = _context.Products.FirstOrDefault(p => p.Id == cartItem.ProductId);
+
+            if (product is null)
             {
-                return Result<Order>.Failure(productResult.Error!, productResult.ErrorType);
+                return Result<OrderGetResponse>.Failure("Product didn't find !!", ResultErrorType.NotFound);
             }
-            var product = productResult.Value!;
+
             if (cartItem.Quantity > product.Stock)
             {
-                return Result<Order>.Failure("Not enough Stock !!", ResultErrorType.Conflict);
+                return Result<OrderGetResponse>.Failure("Not enough stock !!", ResultErrorType.Conflict);
             }
         }
+
         var orderResult = Order.Create(userId, shippingAddress);
+
         if (!orderResult.IsSuccess)
         {
-            return orderResult;
+
+            return Result<OrderGetResponse>.Failure(orderResult.Error!, orderResult.ErrorType);
+
         }
+
         var order = orderResult.Value!;
+
         _context.Orders.Add(order);
         _context.SaveChanges();
-        foreach (var cartItem in cart.CartItems)
+
+        foreach (var cartItem in cart.CartItems.ToList())
         {
-            var productResult = _productServices.GetProduct(cartItem.ProductId);
-            if (!productResult.IsSuccess)
-            {
-                return Result<Order>.Failure(productResult.Error!, productResult.ErrorType);
-            }
-            var product = productResult.Value!;
+            var product = _context.Products.First(p => p.Id == cartItem.ProductId);
+
             var orderItemResult = OrderItem.Create(order.Id, product.Id, cartItem.Quantity, cartItem.UnitPrice);
+
             if (!orderItemResult.IsSuccess)
             {
-                return Result<Order>.Failure(orderItemResult.Error!, orderItemResult.ErrorType);
+                return Result<OrderGetResponse>.Failure(orderItemResult.Error!, orderItemResult.ErrorType);
             }
-            var addItemResult =
-                order.AddItem(orderItemResult.Value!);
+            var addItemResult = order.AddItem(orderItemResult.Value!);
+
             if (!addItemResult.IsSuccess)
             {
-                return Result<Order>.Failure(addItemResult.Error!, addItemResult.ErrorType);
+                return Result<OrderGetResponse>.Failure(addItemResult.Error!, addItemResult.ErrorType);
             }
             var decreaseResult = product.DecreaseStock(cartItem.Quantity);
+
             if (!decreaseResult.IsSuccess)
             {
-                return Result<Order>.Failure(decreaseResult.Error!, decreaseResult.ErrorType);
+                return Result<OrderGetResponse>.Failure(decreaseResult.Error!, decreaseResult.ErrorType);
             }
         }
+
         cart.Clear();
         _context.SaveChanges();
-        return Result<Order>.Success(order);
+
+        return Result<OrderGetResponse>.Success(ToGetResponse(order));
     }
+
     public Result CancelOrder(int orderId)
     {
-        var orderResult = GetOrder(orderId);
+        var orderResult = GetOrderModel(orderId);
+
         if (!orderResult.IsSuccess)
         {
             return Result.Failure(orderResult.Error!, orderResult.ErrorType);
         }
         var result = orderResult.Value!.Cancel();
-        if (!result.IsSuccess)
-        {
-            return result;
-        }
+
+        if (!result.IsSuccess) return result;
+
         _context.SaveChanges();
         return Result.Success();
     }
-    public Result<List<Order>> GetUserOrder(int userId)
-    {
-        if (userId <= 0)
-        {
-            return Result<List<Order>>.Failure("userId Is Invalid !!", ResultErrorType.BadRequest);
-        }
-        return Result<List<Order>>.Success(_context.Orders.Include(o => o.OrderItems).Where(o => o.UserId == userId).ToList());
-    }
+
     public Result ChangeOrderStatus(int orderId, OrderStatus status)
     {
-        var orderResult = GetOrder(orderId);
+        var orderResult = GetOrderModel(orderId);
+
         if (!orderResult.IsSuccess)
         {
             return Result.Failure(orderResult.Error!, orderResult.ErrorType);
         }
         var result = orderResult.Value!.ChangeOrderStatus(status);
-        if (!result.IsSuccess)
-        {
-            return result;
-        }
+
+        if (!result.IsSuccess) return result;
+
         _context.SaveChanges();
+
         return Result.Success();
     }
+
+    private Result<Order> GetOrderModel(int orderId)
+    {
+        if (orderId <= 0)
+        {
+            return Result<Order>.Failure("Order id is invalid !!", ResultErrorType.BadRequest);
+        }
+
+        var order = _context.Orders.Include(o => o.OrderItems).FirstOrDefault(o => o.Id == orderId);
+
+        if (order is null)
+        {
+            return Result<Order>.Failure("Order didn't find !!", ResultErrorType.NotFound);
+        }
+
+        return Result<Order>.Success(order);
+    }
+
+    private static OrderGetResponse ToGetResponse(Order order) => new(order.Id, order.UserId, order.CreatedAt, order.Status, order.ShippingAddress, order.OrderItems.Sum(item => item.TotalPrice), order.OrderItems.Select(ToOrderItemResponse).ToList());
+
+    private static OrderGetAllResponse ToGetAllResponse(Order order) => new(order.Id, order.UserId, order.CreatedAt, order.Status, order.ShippingAddress, order.OrderItems.Sum(item => item.TotalPrice));
+
+    private static OrderItemGetResponse ToOrderItemResponse(OrderItem item) => new(item.Id, item.ProductId, item.Quantity, item.UnitPrice, item.TotalPrice);
 }

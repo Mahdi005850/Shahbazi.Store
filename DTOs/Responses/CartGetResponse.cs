@@ -8,6 +8,13 @@ public static class CartGetResponseExtensions
 {
     public static CartGetResponse ToResponse(this Cart cart)
     {
-        return new CartGetResponse(cart.Id, cart.UserId, cart.CreatedAt, cart.UpdatedAt, cart.TotalPrice, cart.CartItems.Select(item => new CartItemGetResponse(item.Id, item.ProductId, item.Quantity, item.TotalPrice)).ToList());
+        return new CartGetResponse(
+            cart.Id,
+            cart.UserId,
+            cart.CreatedAt,
+            cart.UpdatedAt,
+            cart.TotalPrice,
+            cart.CartItems.Select(item => new CartItemGetResponse(item.Id, item.ProductId, item.Quantity, item.UnitPrice, item.TotalPrice)).ToList()
+        );
     }
 }

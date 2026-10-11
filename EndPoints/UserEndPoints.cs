@@ -1,77 +1,58 @@
-﻿using Shahbazi.Store.Common.ResultPattern;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.DTOs.Requests;
-using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Services;
 
-namespace Shahbazi.Store.EndPoints;
-
-internal static class UserEndPoints
+public static class UserEndpoints
 {
-    public static void MapUserEndPoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapUserEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/users", (UserServices userServices, UserCreatDto dto) =>
+        var group = app.MapGroup("/api/users");
+
+        group.MapPost("", (UserCreateRequest request, UserServices service) => ToHttpResult(service.AddUser(request.FullName, request.PhoneNumber, request.Address)));
+
+        group.MapGet("", (UserServices service) => ToHttpResult(service.GetAllUsers()));
+
+        group.MapGet("/{id:int}", (int id, UserServices service) => ToHttpResult(service.GetUser(id)));
+
+        group.MapPut("/{id:int}", (int id, UserUpdateRequest request, UserServices service) => ToHttpResult(service.UpdateUser(id, request.FullName, request.PhoneNumber, request.Address)));
+
+        group.MapDelete("/{id:int}", (int id, UserServices service) => ToHttpResult(service.DeleteUser(id)));
+
+        return app;
+    }
+
+    private static IResult ToHttpResult<T>(Result<T> result)
+    {
+        if (result.IsSuccess)
         {
-            var result = userServices.AddUser(dto.FullName, dto.PhoneNumber, dto.Address);
-            if (!result.IsSuccess)
-            {
-                return Results.BadRequest(result.Error);
-            }
-            return Results.Ok("User Created Successfully !!");
-        });
-        app.MapGet("/api/users", (UserServices userServices) =>
+            return TypedResults.Ok(result.Value);
+        }
+
+        return result.ErrorType switch
         {
-            var usersResult = userServices.GetAllUsers();
-            var result = usersResult.Value!.Select(User => new UserGetAllDto
-            {
-                Id = User.Id,
-                FullName = User.FullName,
-                PhoneNumber = User.PhoneNumber,
-                Address = User.Address
-            });
-            return Results.Ok(result);
-        });
-        app.MapGet("/api/users/{id}", (int id, UserServices userServices) =>
+            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
+            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
+            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
+            _ => TypedResults.Problem(result.Error)
+        };
+    }
+
+    private static IResult ToHttpResult(Result result)
+    {
+        if (result.IsSuccess)
         {
-            var userResult = userServices.GetUser(id);
-            if (!userResult.IsSuccess)
-            {
-                return Results.NotFound(userResult.Error);
-            }
-            var user = userResult.Value!;
-            var result = new UserGetDto
-            {
-                Id = user.Id,
-                FullName = user.FullName,
-                PhoneNumber = user.PhoneNumber,
-                Address = user.Address
-            };
-            return Results.Ok(result);
-        });
-        app.MapPut("/api/users/{id}", (int id, UserUpdateRequest dto, UserServices userServices) =>
+            return TypedResults.Ok(new { message = "Operation completed successfully" });
+        }
+
+        return result.ErrorType switch
         {
-            var result = userServices.UpdateUser(id, dto.FullName, dto.PhoneNumber, dto.Address);
-            if (!result.IsSuccess)
-            {
-                if (result.ErrorType == ResultErrorType.NotFound)
-                {
-                    return Results.NotFound(result.Error);
-                }
-                return Results.BadRequest(result.Error);
-            }
-            return Results.Ok("User Updated Successfully !!");
-        });
-        app.MapDelete("/api/users/{id}", (int id, UserServices userServices) =>
-        {
-            var result = userServices.DeleteUser(id);
-            if (!result.IsSuccess)
-            {
-                return Results.NotFound(result.Error);
-            }
-            var deleteResult = new UserDeleteRequest
-            {
-                Id = id
-            };
-            return Results.Ok(deleteResult);
-        });
+            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
+            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
+            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
+            _ => TypedResults.Problem(result.Error)
+        };
     }
 }

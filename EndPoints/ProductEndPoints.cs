@@ -1,88 +1,66 @@
-﻿using Shahbazi.Store.Services;
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.DTOs.Requests;
+using Shahbazi.Store.Services;
 
-namespace Shahbazi.Store.EndPoints;
-
-
-internal static class ProductEndPoints
+public static class ProductEndpoints
 {
-    public static void MapProductEndPoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapProductEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/products", (ProductCreateRequest dto, ProductServices productServices) =>
-        {
-            var result = productServices.AddProduct(dto.Name, dto.Price, dto.Description, dto.Stock);
-            if (!result.IsSuccess)
-            {
-                return Results.BadRequest(result.Error);
-            }
-            return Results.Ok("Product Created Successfully !!");
-        });
-        app.MapGet("/api/products", (ProductServices productServices) =>
-        {
-            var result = productServices.GetAllProducts();
-            return Results.Ok(result.Value);
-        });
-        app.MapGet("/api/products/search", (string search, ProductServices productServices) =>
-        {
-            var result = productServices.SearchProducts(search);
-            return Results.Ok(result.Value);
-        });
-        app.MapGet("/api/products/paging", (int page, int pageSize, ProductServices productServices) =>
-        {
-            var result = productServices.GetProducts(page, pageSize);
-            if (!result.IsSuccess)
-            {
-                return Results.BadRequest(result.Error);
-            }
-            return Results.Ok(result.Value);
-        });
-        app.MapGet("/api/products/filter", (decimal? minPrice, decimal? maxPrice, ProductServices productServices) =>
-        {
-            var result = productServices.FilterProducts(minPrice, maxPrice);
-            if (!result.IsSuccess)
-            {
-                return Results.BadRequest(result.Error);
-            }
-            return Results.Ok(result.Value);
-        });
-        app.MapGet("/api/products/sort", (bool ascending, ProductServices productServices) =>
-        {
-            var result = productServices.SortProducts(ascending);
-            return Results.Ok(result.Value);
-        });
-        app.MapGet("/api/products/{id}", (int id, ProductServices productServices) =>
-        {
-            var result = productServices.GetProduct(id);
+        var group = app.MapGroup("/api/products");
 
-            if (!result.IsSuccess)
-            {
-                return Results.NotFound(result.Error);
-            }
+        group.MapPost("", (ProductCreateRequest request, ProductServices service) => ToHttpResult(service.AddProduct(request.Name, request.Price, request.Description, request.Stock)));
 
-            return Results.Ok(result.Value);
-        });
-        app.MapPut("/api/products/{id}", (int id, ProductUpdateDto dto, ProductServices productServices) =>
+        group.MapGet("", (ProductServices service) => ToHttpResult(service.GetAllProducts()));
+
+        group.MapGet("/{id:int}", (int id, ProductServices service) => ToHttpResult(service.GetProduct(id)));
+
+        group.MapPut("/{id:int}", (int id, ProductUpdateRequest request, ProductServices service) => ToHttpResult(service.UpdateProduct(id, request.Name, request.Price, request.Description)));
+
+        group.MapDelete("/{id:int}", (int id, ProductServices service) => ToHttpResult(service.DeleteProduct(id)));
+
+        group.MapGet("/search", (string search, ProductServices service) => ToHttpResult(service.SearchProducts(search)));
+
+        group.MapGet("/paging", (int page, int pageSize, ProductServices service) => ToHttpResult(service.GetProducts(page, pageSize)));
+
+        group.MapGet("/filter", (decimal? minPrice, decimal? maxPrice, ProductServices service) => ToHttpResult(service.FilterProducts(minPrice, maxPrice)));
+
+        group.MapGet("/sort", (bool ascending, ProductServices service) => ToHttpResult(service.SortProducts(ascending)));
+
+        return app;
+    }
+
+    private static IResult ToHttpResult<T>(Result<T> result)
+    {
+        if (result.IsSuccess)
         {
-            var result = productServices.UpdateProduct(id, dto.Name, dto.Price, dto.Description);
-            if (!result.IsSuccess)
-            {
-                if (result.ErrorType == ResultErrorType.NotFound)
-                {
-                    return Results.NotFound(result.Error);
-                }
-                return Results.BadRequest(result.Error);
-            }
-            return Results.Ok("Product Updated Successfully !!");
-        });
-        app.MapDelete("/api/products/{id}", (int id, ProductServices productServices) =>
+            return TypedResults.Ok(result.Value);
+        }
+
+        return result.ErrorType switch
         {
-            var result = productServices.DeleteProduct(id);
-            if (!result.IsSuccess)
-            {
-                return Results.NotFound(result.Error);
-            }
-            return Results.Ok("Product Deleted Successfully !!");
-        });
+            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
+            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
+            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
+            _ => TypedResults.Problem(result.Error)
+        };
+    }
+
+    private static IResult ToHttpResult(Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return TypedResults.Ok(new { message = "Operation completed successfully" });
+        }
+
+        return result.ErrorType switch
+        {
+            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
+            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
+            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
+            _ => TypedResults.Problem(result.Error)
+        };
     }
 }
