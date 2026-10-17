@@ -1,9 +1,6 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Shahbazi.Store.Common.ResultPattern;
-using Shahbazi.Store.DTOs.Requests;
+﻿using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.Services;
+using static Shahbazi.Store.Common.CodeResponse.ApiResults;
 
 public static class UserEndpoints
 {
@@ -11,52 +8,16 @@ public static class UserEndpoints
     {
         var group = app.MapGroup("/api/users");
 
-        group.MapPost("", (UserCreateRequest request, UserServices service) => ToHttpResult(service.AddUser(request.FullName, request.PhoneNumber, request.Address)));
+        group.MapPost("", (UserCreateRequest request, UserServices service) => ToHttpResult(service.AddUser(request.FullName, request.PhoneNumber, request.Address), new(Success: "User created successfully.")));
 
-        group.MapGet("", (UserServices service) => ToHttpResult(service.GetAllUsers()));
+        group.MapGet("", (UserServices service) => ToHttpResult(service.GetAllUsers(), new(Success: "Users retrieved successfully.")));
 
-        group.MapGet("/{id:int}", (int id, UserServices service) => ToHttpResult(service.GetUser(id)));
+        group.MapGet("/{id:int}", (int id, UserServices service) => ToHttpResult(service.GetUser(id), new(Success: "User retrieved successfully.", BadRequest: "User id is invalid.", NotFound: "User not found.")));
 
-        group.MapPut("/{id:int}", (int id, UserUpdateRequest request, UserServices service) => ToHttpResult(service.UpdateUser(id, request.FullName, request.PhoneNumber, request.Address)));
+        group.MapPut("/{id:int}", (int id, UserUpdateRequest request, UserServices service) => ToHttpResult(service.UpdateUser(id, request.FullName, request.PhoneNumber, request.Address), new(Success: "User updated successfully.", NotFound: "User not found.")));
 
-        group.MapDelete("/{id:int}", (int id, UserServices service) => ToHttpResult(service.DeleteUser(id)));
+        group.MapDelete("/{id:int}", (int id, UserServices service) => ToHttpResult(service.DeleteUser(id), new(Success: "User deleted successfully.", NotFound: "User not found.")));
 
         return app;
-    }
-
-    private static IResult ToHttpResult<T>(Result<T> result)
-    {
-        if (result.IsSuccess)
-        {
-            return TypedResults.Ok(result.Value);
-        }
-
-        var error = result.Error!;
-
-        return error.Type switch
-        {
-            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
-            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
-            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
-            _ => TypedResults.Problem(error.Message)
-        };
-    }
-
-    private static IResult ToHttpResult(Result result)
-    {
-        if (result.IsSuccess)
-        {
-            return TypedResults.Ok(new { message = "Operation completed successfully" });
-        }
-
-        var error = result.Error!;
-
-        return error.Type switch
-        {
-            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
-            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
-            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
-            _ => TypedResults.Problem(error.Message)
-        };
     }
 }

@@ -1,9 +1,6 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Shahbazi.Store.Common.ResultPattern;
-using Shahbazi.Store.DTOs.Requests;
+﻿using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.Services;
+using static Shahbazi.Store.Common.CodeResponse.ApiResults;
 
 public static class CartEndpoints
 {
@@ -11,58 +8,23 @@ public static class CartEndpoints
     {
         var group = app.MapGroup("/api/carts");
 
-        group.MapPost("", (CartCreateRequest request, CartServices service) => ToHttpResult(service.CreatCart(request.UserId)));
+        group.MapPost("", (CartCreateRequest request, CartServices service) => ToHttpResult(service.CreatCart(request.UserId), new(Success: "Cart created successfully.", BadRequest: "User id is invalid.", NotFound: "User not found.", Conflict: "This user already has a cart.")));
 
-        group.MapGet("", (CartServices service) => ToHttpResult(service.GetAllCarts()));
+        group.MapGet("", (CartServices service) => ToHttpResult(service.GetAllCarts(), new(Success: "Carts retrieved successfully.")));
 
-        group.MapGet("/{userId:int}", (int userId, CartServices service) => ToHttpResult(service.GetCart(userId)));
+        group.MapGet("/{userId:int}", (int userId, CartServices service) =>
+            ToHttpResult(service.GetCart(userId), new(Success: "Cart retrieved successfully.", BadRequest: "User id is invalid.", NotFound: "Cart not found.")));
 
-        group.MapDelete("/{userId:int}/items", (int userId, CartServices service) => ToHttpResult(service.ClearCart(userId)));
+        group.MapDelete("/{userId:int}/items", (int userId, CartServices service) => ToHttpResult(service.ClearCart(userId), new(Success: "Cart cleared successfully.", BadRequest: "User id is invalid.", NotFound: "Cart not found.")));
 
-        group.MapPost("/{userId:int}/items", (int userId, CartItemCreateRequest request, CartServices service) => ToHttpResult(service.AddToCart(userId, request.ProductId, request.Quantity)));
+        group.MapPost("/{userId:int}/items", (int userId, CartItemCreateRequest request, CartServices service) => ToHttpResult(service.AddToCart(userId, request.ProductId, request.Quantity), new(Success: "Item added to cart successfully.", Conflict: "Not enough stock for this product.")));
 
-        group.MapDelete("/{userId:int}/items/{productId:int}", (int userId, int productId, CartServices service) => ToHttpResult(service.RemoveFromCart(userId, productId)));
+        group.MapDelete("/{userId:int}/items/{productId:int}", (int userId, int productId, CartServices service) => ToHttpResult(service.RemoveFromCart(userId, productId), new(Success: "Item removed from cart successfully.")));
 
-        group.MapPatch("/{userId:int}/items/{productId:int}/increase", (int userId, int productId, CartItemQuantityRequest request, CartServices service) => ToHttpResult(service.IncreaseQuantity(userId, productId, request.Amount)));
+        group.MapPatch("/{userId:int}/items/{productId:int}/increase", (int userId, int productId, CartItemQuantityRequest request, CartServices service) => ToHttpResult(service.IncreaseQuantity(userId, productId, request.Amount), new(Success: "Item quantity increased successfully.", Conflict: "Not enough stock for this product.")));
 
-        group.MapPatch("/{userId:int}/items/{productId:int}/decrease", (int userId, int productId, CartItemQuantityRequest request, CartServices service) => ToHttpResult(service.DecreaseQuantity(userId, productId, request.Amount)));
+        group.MapPatch("/{userId:int}/items/{productId:int}/decrease", (int userId, int productId, CartItemQuantityRequest request, CartServices service) => ToHttpResult(service.DecreaseQuantity(userId, productId, request.Amount), new(Success: "Item quantity decreased successfully.")));
 
         return app;
-    }
-
-    private static IResult ToHttpResult<T>(Result<T> result)
-    {
-        if (result.IsSuccess)
-        {
-            return TypedResults.Ok(result.Value);
-        }
-
-        var error = result.Error!;
-
-        return error.Type switch
-        {
-            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
-            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
-            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
-            _ => TypedResults.Problem(error.Message)
-        };
-    }
-
-    private static IResult ToHttpResult(Result result)
-    {
-        if (result.IsSuccess)
-        {
-            return TypedResults.Ok(new { message = "Operation completed successfully" });
-        }
-
-        var error = result.Error!;
-
-        return error.Type switch
-        {
-            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
-            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
-            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
-            _ => TypedResults.Problem(error.Message)
-        };
     }
 }

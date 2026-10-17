@@ -1,10 +1,7 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Shahbazi.Store.Common.ResultPattern;
-using Shahbazi.Store.DTOs.Requests;
+﻿using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.Enums;
 using Shahbazi.Store.Services;
+using static Shahbazi.Store.Common.CodeResponse.ApiResults;
 
 public static class OrderEndpoints
 {
@@ -12,50 +9,16 @@ public static class OrderEndpoints
     {
         var group = app.MapGroup("/api/orders");
 
-        group.MapPost("/{userId:int}", (int userId, OrderCreateRequest request, OrderServices service) => ToHttpResult(service.CreateOrder(userId, request.ShippingAddress)));
+        group.MapPost("/{userId:int}", (int userId, OrderCreateRequest request, OrderServices service) => ToHttpResult(service.CreateOrder(userId, request.ShippingAddress), new(Success: "Order created successfully.", Conflict: "Not enough stock for one or more products.")));
 
-        group.MapGet("/{id:int}", (int id, OrderServices service) => ToHttpResult(service.GetOrder(id)));
+        group.MapGet("/{id:int}", (int id, OrderServices service) => ToHttpResult(service.GetOrder(id), new(Success: "Order retrieved successfully.", NotFound: "Order not found.")));
 
-        group.MapGet("/users/{userId:int}", (int userId, OrderServices service) => ToHttpResult(service.GetUserOrder(userId)));
+        group.MapGet("/users/{userId:int}", (int userId, OrderServices service) => ToHttpResult(service.GetUserOrder(userId), new(Success: "User orders retrieved successfully.", BadRequest: "User id is invalid.")));
 
-        group.MapPut("/{id:int}/cancel", (int id, OrderServices service) => ToHttpResult(service.CancelOrder(id)));
+        group.MapPut("/{id:int}/cancel", (int id, OrderServices service) => ToHttpResult(service.CancelOrder(id), new(Success: "Order cancelled successfully.")));
 
-        group.MapPut("/{id:int}/status", (int id, OrderStatus status, OrderServices service) => ToHttpResult(service.ChangeOrderStatus(id, status)));
+        group.MapPut("/{id:int}/status", (int id, OrderStatus status, OrderServices service) => ToHttpResult(service.ChangeOrderStatus(id, status), new(Success: "Order status updated successfully.")));
 
         return app;
-    }
-
-    private static IResult ToHttpResult<T>(Result<T> result)
-    {
-        if (result.IsSuccess)
-            return TypedResults.Ok(result.Value);
-
-        var error = result.Error!;
-
-        return error.Type switch
-        {
-            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
-            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
-            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
-            _ => TypedResults.Problem(error.Message)
-        };
-    }
-
-    private static IResult ToHttpResult(Result result)
-    {
-        if (result.IsSuccess)
-        {
-            return TypedResults.Ok(new { message = "Operation completed successfully" });
-        }
-
-        var error = result.Error!;
-
-        return error.Type switch
-        {
-            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
-            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
-            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
-            _ => TypedResults.Problem(error.Message)
-        };
     }
 }
