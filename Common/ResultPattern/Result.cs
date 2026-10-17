@@ -2,37 +2,32 @@
 
 public class Result
 {
-    public bool IsSuccess { get; }
-    public string? Error { get; }
-    public ResultErrorType ErrorType { get; }
-    protected Result(bool isSuccess, string? error, ResultErrorType errorType)
+    public bool IsSuccess => Error is null;
+    public Error? Error { get; }
+
+    protected Result(Error? error = null)
     {
-        IsSuccess = isSuccess;
         Error = error;
-        ErrorType = errorType;
     }
-    public static Result Success()
-    {
-        return new Result(true, null, ResultErrorType.None);
-    }
-    public static Result Failure(string error, ResultErrorType errortype)
-    {
-        return new Result(false, error, errortype);
-    }
+
+    public static Result Success() => new();
+
+    public static Result NotFoundError(string message) => new(new(Error.ErrorType.NotFound, message));
+    public static Result ConflictError(string message) => new(new(Error.ErrorType.Conflict, message));
+    public static Result BadRequestError(string message) => new(new(Error.ErrorType.BadRequest, message));
 }
 public class Result<T> : Result
 {
     public T? Value { get; }
-    private Result(bool isSuccess, T? value, string? error, ResultErrorType errorType) : base(isSuccess, error, errorType)
+
+    protected Result(T? value, Error? error = null) : base(error)
     {
         Value = value;
     }
-    public static Result<T> Success(T value)
-    {
-        return new Result<T>(true, value, null, ResultErrorType.None);
-    }
-    public static Result<T> Failure(string error, ResultErrorType errorType)
-    {
-        return new Result<T>(false, default, error, errorType);
-    }
+
+    public static Result<T> Success(T value) => new(value);
+
+    public static Result<T> NotFoundError(string message) => new(default, new(Error.ErrorType.NotFound, message));
+    public static Result<T> ConflictError(string message) => new(default, new(Error.ErrorType.Conflict, message));
+    public static Result<T> BadRequestError(string message) => new(default, new(Error.ErrorType.BadRequest, message));
 }
