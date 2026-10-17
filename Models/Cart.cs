@@ -20,7 +20,7 @@ public class Cart
     {
         if (userId <= 0)
         {
-            return Result<Cart>.Failure("UserId is invalid !!", ResultErrorType.BadRequest);
+            return Result<Cart>.BadRequestError("UserId is invalid !!");
         }
         return Result<Cart>.Success(new Cart(userId));
     }
@@ -28,7 +28,7 @@ public class Cart
     {
         if (item == null)
         {
-            return Result.Failure("CartItem is invalid !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("CartItem is invalid !!");
         }
         CartItems.Remove(item);
         UpdatedAt = DateTime.Now;
@@ -44,7 +44,7 @@ public class Cart
     {
         if (cartItem == null)
         {
-            return Result.Failure("CartItem is invalid !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("CartItem is invalid !!");
         }
         CartItems.Add(cartItem);
         UpdatedAt = DateTime.Now;

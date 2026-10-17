@@ -22,11 +22,11 @@ public class Order
     {
         if (userId <= 0)
         {
-            return Result<Order>.Failure("Invalid UserId !!", ResultErrorType.BadRequest);
+            return Result<Order>.BadRequestError("Invalid UserId !!");
         }
         if (string.IsNullOrWhiteSpace(shippingAddress))
         {
-            return Result<Order>.Failure("Address Cannot be Empty , Please Enter your address !!", ResultErrorType.BadRequest);
+            return Result<Order>.BadRequestError("Address Cannot be Empty , Please Enter your address !!");
         }
         return Result<Order>.Success(new Order(userId, shippingAddress));
     }
@@ -34,7 +34,7 @@ public class Order
     {
         if (item == null)
         {
-            return Result.Failure("OrderItem is invalid !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("OrderItem is invalid !!");
         }
         OrderItems.Add(item);
         return Result.Success();
@@ -48,7 +48,7 @@ public class Order
     {
         if (Status == OrderStatus.Delivered)
         {
-            return Result.Failure("Can not Cancel Delivered item !!", ResultErrorType.Conflict);
+            return Result.ConflictError("Can not Cancel Delivered item !!");
         }
         Status = OrderStatus.Cancelled;
         return Result.Success();

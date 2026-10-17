@@ -20,7 +20,7 @@ public class CartServices
         var cartResult = GetCartModel(userId);
         if (!cartResult.IsSuccess)
         {
-            return Result<CartGetResponse>.Failure(cartResult.Error!, cartResult.ErrorType);
+            return cartResult.ToFailure<CartGetResponse>();
         }
 
         return Result<CartGetResponse>.Success(ToGetResponse(cartResult.Value!));
@@ -30,21 +30,24 @@ public class CartServices
     {
         if (userId <= 0)
         {
-            return Result<CartGetResponse>.Failure("Invalid UserId !!", ResultErrorType.BadRequest);
+            return Result<CartGetResponse>.BadRequestError("Invalid UserId !!");
         }
 
         if (!_context.Users.Any(u => u.Id == userId))
         {
-            return Result<CartGetResponse>.Failure("User didn't find !!", ResultErrorType.NotFound);
+            return Result<CartGetResponse>.NotFoundError("User didn't find !!");
         }
+
         if (_context.Carts.Any(c => c.UserId == userId))
-            return Result<CartGetResponse>.Failure("This User has an existing Cart !!", ResultErrorType.Conflict);
+        {
+            return Result<CartGetResponse>.ConflictError("This User has an existing Cart !!");
+        }
 
         var cartResult = Cart.Create(userId);
 
         if (!cartResult.IsSuccess)
         {
-            return Result<CartGetResponse>.Failure(cartResult.Error!, cartResult.ErrorType);
+            return cartResult.ToFailure<CartGetResponse>();
         }
 
         var cart = cartResult.Value!;
@@ -66,20 +69,20 @@ public class CartServices
     {
         if (quantity <= 0)
         {
-            return Result.Failure("Quantity must be greater than 0 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("Quantity must be greater than 0 !!");
         }
 
         var cartResult = GetCartModel(userId);
         if (!cartResult.IsSuccess)
         {
-            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
+            return cartResult;
         }
 
         var product = _context.Products.FirstOrDefault(p => p.Id == productId);
 
         if (product is null)
         {
-            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("Product didn't find !!");
         }
 
         var cart = cartResult.Value!;
@@ -90,7 +93,7 @@ public class CartServices
 
         if (requestedTotal > product.Stock)
         {
-            return Result.Failure("Not enough stock !!", ResultErrorType.Conflict);
+            return Result.ConflictError("Not enough stock !!");
         }
 
         if (existingItem is not null)
@@ -106,7 +109,7 @@ public class CartServices
 
             if (!itemResult.IsSuccess)
             {
-                return Result.Failure(itemResult.Error!, itemResult.ErrorType);
+                return itemResult;
             }
 
             var addResult = cart.AddItem(itemResult.Value!);
@@ -122,13 +125,16 @@ public class CartServices
         var cartResult = GetCartModel(userId);
         if (!cartResult.IsSuccess)
         {
-            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
+            return cartResult;
         }
 
         var cart = cartResult.Value!;
         var item = cart.CartItems.FirstOrDefault(x => x.ProductId == productId);
 
-        if (item is null) return Result.Failure("Product is not in the cart !!", ResultErrorType.NotFound);
+        if (item is null)
+        {
+            return Result.NotFoundError("Product is not in the cart !!");
+        }
 
         var result = cart.RemoveItem(item);
         if (!result.IsSuccess) return result;
@@ -141,14 +147,14 @@ public class CartServices
     {
         if (amount <= 0)
         {
-            return Result.Failure("Amount must be greater than 0 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("Amount must be greater than 0 !!");
         }
 
         var cartResult = GetCartModel(userId);
 
         if (!cartResult.IsSuccess)
         {
-            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
+            return cartResult;
         }
 
         var cart = cartResult.Value!;
@@ -157,19 +163,19 @@ public class CartServices
 
         if (item is null)
         {
-            return Result.Failure("Product is not in the cart !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("Product is not in the cart !!");
         }
 
         var product = _context.Products.FirstOrDefault(p => p.Id == productId);
 
         if (product is null)
         {
-            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("Product didn't find !!");
         }
 
         if (item.Quantity + amount > product.Stock)
         {
-            return Result.Failure("Not enough stock !!", ResultErrorType.Conflict);
+            return Result.ConflictError("Not enough stock !!");
         }
 
         var result = item.IncreaseQuantity(amount);
@@ -187,21 +193,21 @@ public class CartServices
     {
         if (amount <= 0)
         {
-            return Result.Failure("Amount must be greater than 0 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("Amount must be greater than 0 !!");
         }
 
         var cartResult = GetCartModel(userId);
 
         if (!cartResult.IsSuccess)
         {
-            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
+            return cartResult;
         }
 
         var item = cartResult.Value!.CartItems.FirstOrDefault(x => x.ProductId == productId);
 
         if (item is null)
         {
-            return Result.Failure("Product is not in the cart !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("Product is not in the cart !!");
         }
 
         var result = item.DecreaseQuantity(amount);
@@ -220,7 +226,7 @@ public class CartServices
         var cartResult = GetCartModel(userId);
         if (!cartResult.IsSuccess)
         {
-            return Result.Failure(cartResult.Error!, cartResult.ErrorType);
+            return cartResult;
         }
 
         var result = cartResult.Value!.Clear();
@@ -237,11 +243,16 @@ public class CartServices
     private Result<Cart> GetCartModel(int userId)
     {
         if (userId <= 0)
-            return Result<Cart>.Failure("UserId is invalid !!", ResultErrorType.BadRequest);
+        {
+            return Result<Cart>.BadRequestError("UserId is invalid !!");
+        }
 
         var cart = _context.Carts.Include(c => c.CartItems).FirstOrDefault(c => c.UserId == userId);
+
         if (cart is null)
-            return Result<Cart>.Failure("Cart didn't find !!", ResultErrorType.NotFound);
+        {
+            return Result<Cart>.NotFoundError("Cart didn't find !!");
+        }
 
         return Result<Cart>.Success(cart);
     }

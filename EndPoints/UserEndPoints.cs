@@ -31,12 +31,14 @@ public static class UserEndpoints
             return TypedResults.Ok(result.Value);
         }
 
-        return result.ErrorType switch
+        var error = result.Error!;
+
+        return error.Type switch
         {
-            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
-            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
-            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
-            _ => TypedResults.Problem(result.Error)
+            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
+            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
+            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
+            _ => TypedResults.Problem(error.Message)
         };
     }
 
@@ -47,12 +49,14 @@ public static class UserEndpoints
             return TypedResults.Ok(new { message = "Operation completed successfully" });
         }
 
-        return result.ErrorType switch
+        var error = result.Error!;
+
+        return error.Type switch
         {
-            ResultErrorType.BadRequest => TypedResults.BadRequest(new { error = result.Error }),
-            ResultErrorType.NotFound => TypedResults.NotFound(new { error = result.Error }),
-            ResultErrorType.Conflict => TypedResults.Conflict(new { error = result.Error }),
-            _ => TypedResults.Problem(result.Error)
+            Error.ErrorType.BadRequest => TypedResults.BadRequest(new { error = error.Message }),
+            Error.ErrorType.NotFound => TypedResults.NotFound(new { error = error.Message }),
+            Error.ErrorType.Conflict => TypedResults.Conflict(new { error = error.Message }),
+            _ => TypedResults.Problem(error.Message)
         };
     }
 }

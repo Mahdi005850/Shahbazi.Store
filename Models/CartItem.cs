@@ -21,19 +21,19 @@ public class CartItem
     {
         if (cartId <= 0)
         {
-            return Result<CartItem>.Failure("CartId is Invalid !!", ResultErrorType.BadRequest);
+            return Result<CartItem>.BadRequestError("CartId is Invalid !!");
         }
         if (productId <= 0)
         {
-            return Result<CartItem>.Failure("ProductId is Invalid !!", ResultErrorType.BadRequest);
+            return Result<CartItem>.BadRequestError("ProductId is Invalid !!");
         }
         if (quantity <= 0)
         {
-            return Result<CartItem>.Failure("Quantity must be more !!", ResultErrorType.BadRequest);
+            return Result<CartItem>.BadRequestError("Quantity must be more !!");
         }
         if (unitPrice <= 0)
         {
-            return Result<CartItem>.Failure("Price Can not be 0 !!", ResultErrorType.BadRequest);
+            return Result<CartItem>.BadRequestError("Price Can not be 0 !!");
         }
         return Result<CartItem>.Success(
             new CartItem(cartId, productId, quantity, unitPrice));
@@ -42,7 +42,7 @@ public class CartItem
     {
         if (amount <= 0)
         {
-            return Result.Failure("The Amount must be more than 0 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("The Amount must be more than 0 !!");
         }
         Quantity += amount;
         return Result.Success();
@@ -51,11 +51,11 @@ public class CartItem
     {
         if (amount <= 0)
         {
-            return Result.Failure("The Amount must be more than 0 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("The Amount must be more than 0 !!");
         }
         if (Quantity - amount < 1)
         {
-            return Result.Failure("The Quantity Of Product Can not be less than 1 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("The Quantity Of Product Can not be less than 1 !!");
         }
         Quantity -= amount;
         return Result.Success();
@@ -64,7 +64,7 @@ public class CartItem
     {
         if (quantity < 1)
         {
-            return Result.Failure("Quantity AtLeast most be 1!!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("Quantity AtLeast most be 1!!");
         }
         Quantity = quantity;
         return Result.Success();

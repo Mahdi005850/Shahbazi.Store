@@ -20,15 +20,15 @@ public class Product
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            return Result<Product>.Failure("The productName id neccesary!!", ResultErrorType.BadRequest);
+            return Result<Product>.BadRequestError("The productName id neccesary!!");
         }
         if (price < 0)
         {
-            return Result<Product>.Failure("The price can not be negative !!", ResultErrorType.BadRequest);
+            return Result<Product>.BadRequestError("The price can not be negative !!");
         }
         if (stock < 0)
         {
-            return Result<Product>.Failure("Stock Can not be negative !!", ResultErrorType.BadRequest);
+            return Result<Product>.BadRequestError("Stock Can not be negative !!");
         }
         return Result<Product>.Success(new Product(name, price, description, stock));
     }
@@ -36,7 +36,7 @@ public class Product
     {
         if (amount <= 0)
         {
-            return Result.Failure("The amount must be more than 0 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("The amount must be more than 0 !!");
         }
         Stock += amount;
         return Result.Success();
@@ -45,11 +45,11 @@ public class Product
     {
         if (amount <= 0)
         {
-            return Result.Failure("The amount must be more than 0!!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("The amount must be more than 0!!");
         }
         if (Stock < amount)
         {
-            return Result.Failure("No Enough Stock!!", ResultErrorType.Conflict);
+            return Result.ConflictError("No Enough Stock!!");
         }
         Stock -= amount;
         return Result.Success();
@@ -58,7 +58,7 @@ public class Product
     {
         if (newPrice < 0)
         {
-            return Result.Failure("Price can not be 0 !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("Price can not be 0 !!");
         }
         Price = newPrice;
         return Result.Success();
@@ -67,11 +67,11 @@ public class Product
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            return Result.Failure("The productName Cannot be empty !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("The productName Cannot be empty !!");
         }
         if (price < 0)
         {
-            return Result.Failure("The price Can not be negative !!", ResultErrorType.BadRequest);
+            return Result.BadRequestError("The price Can not be negative !!");
         }
         Name = name;
         Price = price;

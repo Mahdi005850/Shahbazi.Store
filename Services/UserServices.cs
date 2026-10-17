@@ -20,14 +20,14 @@ public class UserServices
     {
         if (userId <= 0)
         {
-            return Result<UserGetResponse>.Failure("User id is invalid", ResultErrorType.BadRequest);
+            return Result<UserGetResponse>.BadRequestError("User id is invalid");
         }
 
         var user = _context.Users.AsNoTracking().FirstOrDefault(u => u.Id == userId);
 
         if (user is null)
         {
-            return Result<UserGetResponse>.Failure("User didn't find !!", ResultErrorType.NotFound);
+            return Result<UserGetResponse>.NotFoundError("User didn't find !!");
         }
 
         return Result<UserGetResponse>.Success(ToGetResponse(user));
@@ -40,7 +40,7 @@ public class UserServices
 
         if (!validation.IsValid)
         {
-            return Result<UserGetResponse>.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ResultErrorType.BadRequest);
+            return Result<UserGetResponse>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
         var user = new User(fullName, phoneNumber, address);
@@ -63,7 +63,7 @@ public class UserServices
         var user = _context.Users.FirstOrDefault(u => u.Id == userId);
         if (user is null)
         {
-            return Result.Failure("User didn't find !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("User didn't find !!");
         }
 
         var request = new UserUpdateRequest(fullName, phoneNumber, address);
@@ -72,7 +72,7 @@ public class UserServices
 
         if (!validation.IsValid)
         {
-            return Result.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ResultErrorType.BadRequest);
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
         user.UpdateInformation(fullName, phoneNumber, address);
@@ -86,7 +86,7 @@ public class UserServices
         var user = _context.Users.FirstOrDefault(u => u.Id == userId);
         if (user is null)
         {
-            return Result.Failure("User didn't find !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("User didn't find !!");
         }
 
         _context.Users.Remove(user);
@@ -96,6 +96,5 @@ public class UserServices
     }
 
     private static UserGetResponse ToGetResponse(User user) => new(user.Id, user.FullName, user.PhoneNumber, user.Address);
-
     private static UserGetAllResponse ToGetAllResponse(User user) => new(user.Id, user.FullName, user.PhoneNumber, user.Address);
 }

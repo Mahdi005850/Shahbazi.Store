@@ -24,7 +24,7 @@ public class OrderServices
 
         if (!order.IsSuccess)
         {
-            return Result<OrderGetResponse>.Failure(order.Error!, order.ErrorType);
+            return order.ToFailure<OrderGetResponse>();
         }
         return Result<OrderGetResponse>.Success(ToGetResponse(order.Value!));
     }
@@ -33,7 +33,7 @@ public class OrderServices
     {
         if (userId <= 0)
         {
-            return Result<List<OrderGetAllResponse>>.Failure("UserId is invalid !!", ResultErrorType.BadRequest);
+            return Result<List<OrderGetAllResponse>>.BadRequestError("UserId is invalid !!");
         }
 
         var orders = _context.Orders.Include(o => o.OrderItems).AsNoTracking().Where(o => o.UserId == userId).ToList();
@@ -45,21 +45,21 @@ public class OrderServices
     {
         if (!_context.Users.Any(u => u.Id == userId))
         {
-            return Result<OrderGetResponse>.Failure("User didn't find !!", ResultErrorType.NotFound);
+            return Result<OrderGetResponse>.NotFoundError("User didn't find !!");
         }
 
         var cartResult = _context.Carts.Include(c => c.CartItems).FirstOrDefault(c => c.UserId == userId);
 
         if (cartResult is null)
         {
-            return Result<OrderGetResponse>.Failure("Cart didn't find !!", ResultErrorType.NotFound);
+            return Result<OrderGetResponse>.NotFoundError("Cart didn't find !!");
         }
 
         var cart = cartResult;
 
         if (!cart.CartItems.Any())
         {
-            return Result<OrderGetResponse>.Failure("Cart is Empty !!", ResultErrorType.BadRequest);
+            return Result<OrderGetResponse>.BadRequestError("Cart is Empty !!");
         }
 
         foreach (var cartItem in cart.CartItems)
@@ -68,12 +68,12 @@ public class OrderServices
 
             if (product is null)
             {
-                return Result<OrderGetResponse>.Failure("Product didn't find !!", ResultErrorType.NotFound);
+                return Result<OrderGetResponse>.NotFoundError("Product didn't find !!");
             }
 
             if (cartItem.Quantity > product.Stock)
             {
-                return Result<OrderGetResponse>.Failure("Not enough stock !!", ResultErrorType.Conflict);
+                return Result<OrderGetResponse>.ConflictError("Not enough stock !!");
             }
         }
 
@@ -81,9 +81,7 @@ public class OrderServices
 
         if (!orderResult.IsSuccess)
         {
-
-            return Result<OrderGetResponse>.Failure(orderResult.Error!, orderResult.ErrorType);
-
+            return orderResult.ToFailure<OrderGetResponse>();
         }
 
         var order = orderResult.Value!;
@@ -99,19 +97,19 @@ public class OrderServices
 
             if (!orderItemResult.IsSuccess)
             {
-                return Result<OrderGetResponse>.Failure(orderItemResult.Error!, orderItemResult.ErrorType);
+                return orderItemResult.ToFailure<OrderGetResponse>();
             }
             var addItemResult = order.AddItem(orderItemResult.Value!);
 
             if (!addItemResult.IsSuccess)
             {
-                return Result<OrderGetResponse>.Failure(addItemResult.Error!, addItemResult.ErrorType);
+                return addItemResult.ToFailure<OrderGetResponse>();
             }
             var decreaseResult = product.DecreaseStock(cartItem.Quantity);
 
             if (!decreaseResult.IsSuccess)
             {
-                return Result<OrderGetResponse>.Failure(decreaseResult.Error!, decreaseResult.ErrorType);
+                return decreaseResult.ToFailure<OrderGetResponse>();
             }
         }
 
@@ -127,11 +125,14 @@ public class OrderServices
 
         if (!orderResult.IsSuccess)
         {
-            return Result.Failure(orderResult.Error!, orderResult.ErrorType);
+            return orderResult;
         }
         var result = orderResult.Value!.Cancel();
 
-        if (!result.IsSuccess) return result;
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
 
         _context.SaveChanges();
         return Result.Success();
@@ -143,11 +144,14 @@ public class OrderServices
 
         if (!orderResult.IsSuccess)
         {
-            return Result.Failure(orderResult.Error!, orderResult.ErrorType);
+            return orderResult;
         }
         var result = orderResult.Value!.ChangeOrderStatus(status);
 
-        if (!result.IsSuccess) return result;
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
 
         _context.SaveChanges();
 
@@ -158,14 +162,14 @@ public class OrderServices
     {
         if (orderId <= 0)
         {
-            return Result<Order>.Failure("Order id is invalid !!", ResultErrorType.BadRequest);
+            return Result<Order>.BadRequestError("Order id is invalid !!");
         }
 
         var order = _context.Orders.Include(o => o.OrderItems).FirstOrDefault(o => o.Id == orderId);
 
         if (order is null)
         {
-            return Result<Order>.Failure("Order didn't find !!", ResultErrorType.NotFound);
+            return Result<Order>.NotFoundError("Order didn't find !!");
         }
 
         return Result<Order>.Success(order);

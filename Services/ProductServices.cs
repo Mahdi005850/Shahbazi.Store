@@ -24,14 +24,14 @@ public class ProductServices
 
         if (!validation.IsValid)
         {
-            return Result<ProductGetResponse>.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ResultErrorType.BadRequest);
+            return Result<ProductGetResponse>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
         var productResult = Product.Create(name, price, description, stock);
 
         if (!productResult.IsSuccess)
         {
-            return Result<ProductGetResponse>.Failure(productResult.Error!, productResult.ErrorType);
+            return productResult.ToFailure<ProductGetResponse>();
         }
 
         var product = productResult.Value!;
@@ -53,14 +53,14 @@ public class ProductServices
     {
         if (id <= 0)
         {
-            return Result<ProductGetResponse>.Failure("Product id is invalid", ResultErrorType.BadRequest);
+            return Result<ProductGetResponse>.BadRequestError("Product id is invalid");
         }
 
         var product = _context.Products.AsNoTracking().FirstOrDefault(p => p.Id == id);
 
         if (product is null)
         {
-            return Result<ProductGetResponse>.Failure("Product didn't find !!", ResultErrorType.NotFound);
+            return Result<ProductGetResponse>.NotFoundError("Product didn't find !!");
         }
 
         return Result<ProductGetResponse>.Success(ToGetResponse(product));
@@ -72,7 +72,7 @@ public class ProductServices
 
         if (product is null)
         {
-            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("Product didn't find !!");
         }
 
         _context.Products.Remove(product);
@@ -87,7 +87,7 @@ public class ProductServices
 
         if (product is null)
         {
-            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("Product didn't find !!");
         }
 
         var request = new ProductUpdateRequest(name, price, description);
@@ -95,7 +95,7 @@ public class ProductServices
 
         if (!validation.IsValid)
         {
-            return Result.Failure(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)), ResultErrorType.BadRequest);
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
         var result = product.UpdateInformation(name, price, description);
@@ -119,7 +119,7 @@ public class ProductServices
 
         if (product is null)
         {
-            return Result.Failure("Product didn't find !!", ResultErrorType.NotFound);
+            return Result.NotFoundError("Product didn't find !!");
         }
 
         var result = increase ? product.IncreaseStock(amount) : product.DecreaseStock(amount);
@@ -138,12 +138,12 @@ public class ProductServices
     {
         if (page < 1)
         {
-            return Result<PagedResult<ProductGetAllResponse>>.Failure("Page must be greater than 0", ResultErrorType.BadRequest);
+            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError("Page must be greater than 0");
         }
 
         if (pageSize < 1)
         {
-            return Result<PagedResult<ProductGetAllResponse>>.Failure("PageSize must be greater than 0", ResultErrorType.BadRequest);
+            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError("PageSize must be greater than 0");
         }
 
         var query = _context.Products.AsNoTracking().OrderBy(p => p.Id);
@@ -167,6 +167,7 @@ public class ProductServices
     public Result<List<ProductGetAllResponse>> SearchProducts(string search)
     {
         var query = _context.Products.AsNoTracking().AsQueryable();
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             search = search.Trim();
@@ -180,7 +181,7 @@ public class ProductServices
     {
         if (minPrice.HasValue && maxPrice.HasValue && minPrice.Value > maxPrice.Value)
         {
-            return Result<List<ProductGetAllResponse>>.Failure("Minimum price cannot be greater than maximum price", ResultErrorType.BadRequest);
+            return Result<List<ProductGetAllResponse>>.BadRequestError("Minimum price cannot be greater than maximum price");
         }
         var query = _context.Products.AsNoTracking().AsQueryable();
 
