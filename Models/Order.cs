@@ -39,18 +39,55 @@ public class Order
         OrderItems.Add(item);
         return Result.Success();
     }
+    private static readonly Dictionary<OrderStatus, OrderStatus[]> AllowedTransitions = new()
+    {
+        [OrderStatus.Pending] = [OrderStatus.Paid],
+        [OrderStatus.Paid] = [OrderStatus.Processing],
+        [OrderStatus.Processing] = [OrderStatus.Shipped],
+        [OrderStatus.Shipped] = [OrderStatus.Delivered],
+        [OrderStatus.Delivered] = [],
+        [OrderStatus.Cancelled] = []
+    };
+
     public Result ChangeOrderStatus(OrderStatus status)
     {
+        if (!AllowedTransitions[Status].Contains(status))
+        {
+            return Result.ConflictError($"Can not change order status from {Status} to {status} !!");
+        }
+
         Status = status;
         return Result.Success();
     }
     public Result Cancel()
     {
+        if (Status == OrderStatus.Cancelled)
+        {
+            return Result.ConflictError("Order is already cancelled !!");
+        }
+
         if (Status == OrderStatus.Delivered)
         {
             return Result.ConflictError("Can not Cancel Delivered item !!");
         }
+
         Status = OrderStatus.Cancelled;
+        return Result.Success();
+    }
+
+    public Result UpdateShippingAddress(string shippingAddress)
+    {
+        if (string.IsNullOrWhiteSpace(shippingAddress))
+        {
+            return Result.BadRequestError("Address Cannot be Empty , Please Enter your address !!");
+        }
+
+        if (Status is OrderStatus.Shipped or OrderStatus.Delivered or OrderStatus.Cancelled)
+        {
+            return Result.ConflictError("The address of this order can no longer be changed !!");
+        }
+
+        ShippingAddress = shippingAddress;
         return Result.Success();
     }
 }

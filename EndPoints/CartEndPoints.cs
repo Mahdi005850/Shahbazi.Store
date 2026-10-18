@@ -8,12 +8,11 @@ public static class CartEndpoints
     {
         var group = app.MapGroup("/api/carts");
 
-        group.MapPost("", (CartCreateRequest request, CartServices service) => ToHttpResult(service.CreatCart(request.UserId), new(Success: "Cart created successfully.", BadRequest: "User id is invalid.", NotFound: "User not found.", Conflict: "This user already has a cart.")));
+        group.MapPost("", (CartCreateRequest request, CartServices service) => ToCreatedResult(service.CreatCart(request.UserId), _ => $"/api/carts/{request.UserId}", new(Success: "Cart created successfully.", BadRequest: "User id is invalid.", NotFound: "User not found.", Conflict: "This user already has a cart.")));
 
         group.MapGet("", (CartServices service) => ToHttpResult(service.GetAllCarts(), new(Success: "Carts retrieved successfully.")));
 
-        group.MapGet("/{userId:int}", (int userId, CartServices service) =>
-            ToHttpResult(service.GetCart(userId), new(Success: "Cart retrieved successfully.", BadRequest: "User id is invalid.", NotFound: "Cart not found.")));
+        group.MapGet("/{userId:int}", (int userId, CartServices service) => ToHttpResult(service.GetCart(userId), new(Success: "Cart retrieved successfully.", BadRequest: "User id is invalid.", NotFound: "Cart not found.")));
 
         group.MapDelete("/{userId:int}/items", (int userId, CartServices service) => ToHttpResult(service.ClearCart(userId), new(Success: "Cart cleared successfully.", BadRequest: "User id is invalid.", NotFound: "Cart not found.")));
 

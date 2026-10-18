@@ -36,4 +36,15 @@ public static class ApiResults
             _ => TypedResults.Problem(error.Message)
         };
     }
+    public static IResult ToCreatedResult<T>(Result<T> result, Func<T, string> location, ApiMessages? messages = null)
+    {
+        if (!result.IsSuccess)
+        {
+            return ToErrorResult(result.Error!, messages);
+        }
+
+        var body = new ApiResponse<T>(ResponseCodes.Success, messages?.Success ?? DefaultSuccessMessage, result.Value);
+
+        return TypedResults.Created(location(result.Value!), body);
+    }
 }

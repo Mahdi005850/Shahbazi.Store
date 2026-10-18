@@ -3,6 +3,7 @@ using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Models;
+using Shahbazi.Store.DTOs.Requests;
 
 namespace Shahbazi.Store.Services;
 
@@ -119,9 +120,15 @@ public class CartServices
         _context.SaveChanges();
         return Result.Success();
     }
-
     public Result RemoveFromCart(int userId, int productId)
     {
+        var validation = new CartItemDeleteRequest(productId).Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
         var cartResult = GetCartModel(userId);
         if (!cartResult.IsSuccess)
         {
@@ -131,10 +138,7 @@ public class CartServices
         var cart = cartResult.Value!;
         var item = cart.CartItems.FirstOrDefault(x => x.ProductId == productId);
 
-        if (item is null)
-        {
-            return Result.NotFoundError("Product is not in the cart !!");
-        }
+        if (item is null) return Result.NotFoundError("Product is not in the cart !!");
 
         var result = cart.RemoveItem(item);
         if (!result.IsSuccess) return result;
@@ -142,7 +146,6 @@ public class CartServices
         _context.SaveChanges();
         return Result.Success();
     }
-
     public Result IncreaseQuantity(int userId, int productId, int amount)
     {
         if (amount <= 0)
@@ -220,9 +223,15 @@ public class CartServices
         _context.SaveChanges();
         return Result.Success();
     }
-
     public Result ClearCart(int userId)
     {
+        var validation = new CartDeleteRequest(userId).Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
         var cartResult = GetCartModel(userId);
         if (!cartResult.IsSuccess)
         {
@@ -239,7 +248,6 @@ public class CartServices
         _context.SaveChanges();
         return Result.Success();
     }
-
     private Result<Cart> GetCartModel(int userId)
     {
         if (userId <= 0)

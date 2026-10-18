@@ -1,9 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Shahbazi.Store.Common;
+using Shahbazi.Store.Common.Querying;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Data;
+using Shahbazi.Store.DTOs.Queries;
+using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Enums;
 using Shahbazi.Store.Models;
+using System.Linq.Expressions;
 
 namespace Shahbazi.Store.Services;
 
@@ -118,9 +123,15 @@ public class OrderServices
 
         return Result<OrderGetResponse>.Success(ToGetResponse(order));
     }
-
     public Result CancelOrder(int orderId)
     {
+        var validation = new OrderDeleteRequest(orderId).Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
         var orderResult = GetOrderModel(orderId);
 
         if (!orderResult.IsSuccess)
@@ -129,11 +140,13 @@ public class OrderServices
         }
         var result = orderResult.Value!.Cancel();
 
-        if (!result.IsSuccess)
-        {
-            return result;
-        }
+        if (!result.IsSuccess) return result;
 
+        foreach (var item in orderResult.Value!.OrderItems)
+        {
+            var product = _context.Products.FirstOrDefault(p => p.Id == item.ProductId);
+            product?.IncreaseStock(item.Quantity);
+        }
         _context.SaveChanges();
         return Result.Success();
     }
@@ -173,6 +186,67 @@ public class OrderServices
         }
 
         return Result<Order>.Success(order);
+    }
+
+    public Result UpdateOrderAddress(int orderId, string shippingAddress)
+    {
+        var orderResult = GetOrderModel(orderId);
+
+        if (!orderResult.IsSuccess)
+        {
+            return orderResult;
+        }
+
+        var validation = new OrderUpdateRequest(shippingAddress).Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
+        var result = orderResult.Value!.UpdateShippingAddress(shippingAddress);
+
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        _context.SaveChanges();
+        return Result.Success();
+    }
+    private static readonly Dictionary<string, Expression<Func<Order, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["createdAt"] = o => o.CreatedAt,
+        ["status"] = o => o.Status
+    };
+
+    public Result<PagedResult<OrderGetAllResponse>> GetOrders(OrderQuery query)
+    {
+        var validation = query.Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result<PagedResult<OrderGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
+        if (query.SortBy is not null && !SortableColumns.ContainsKey(query.SortBy))
+        {
+            return Result<PagedResult<OrderGetAllResponse>>.BadRequestError($"SortBy must be one of: {string.Join(", ", SortableColumns.Keys)}.");
+        }
+
+        var orders = _context.Orders.AsNoTracking().Include(o => o.OrderItems).AsQueryable();
+
+        if (query.UserId.HasValue) orders = orders.Where(o => o.UserId == query.UserId.Value);
+
+        if (query.Status.HasValue) orders = orders.Where(o => o.Status == query.Status.Value);
+
+        if (query.FromDate.HasValue) orders = orders.Where(o => o.CreatedAt >= query.FromDate.Value.Date);
+
+        if (query.ToDate.HasValue) orders = orders.Where(o => o.CreatedAt < query.ToDate.Value.Date.AddDays(1));
+
+        var paged = orders.ApplySort(query.SortBy, query.Descending, SortableColumns, o => o.Id).ToPagedResult(query.Page, query.PageSize, ToGetAllResponse);
+
+        return Result<PagedResult<OrderGetAllResponse>>.Success(paged);
     }
 
     private static OrderGetResponse ToGetResponse(Order order) => new(order.Id, order.UserId, order.CreatedAt, order.Status, order.ShippingAddress, order.OrderItems.Sum(item => item.TotalPrice), order.OrderItems.Select(ToOrderItemResponse).ToList());

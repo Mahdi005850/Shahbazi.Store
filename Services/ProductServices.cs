@@ -5,6 +5,9 @@ using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Models;
+using System.Linq.Expressions;
+using Shahbazi.Store.Common.Querying;
+using Shahbazi.Store.DTOs.Queries;
 
 namespace Shahbazi.Store.Services;
 
@@ -42,13 +45,6 @@ public class ProductServices
         return Result<ProductGetResponse>.Success(ToGetResponse(product));
     }
 
-    public Result<List<ProductGetAllResponse>> GetAllProducts()
-    {
-        var products = _context.Products.AsNoTracking().ToList();
-
-        return Result<List<ProductGetAllResponse>>.Success(products.Select(ToGetAllResponse).ToList());
-    }
-
     public Result<ProductGetResponse> GetProduct(int id)
     {
         if (id <= 0)
@@ -65,9 +61,15 @@ public class ProductServices
 
         return Result<ProductGetResponse>.Success(ToGetResponse(product));
     }
-
     public Result DeleteProduct(int id)
     {
+        var validation = new ProductDeleteRequest(id).Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
         var product = _context.Products.FirstOrDefault(p => p.Id == id);
 
         if (product is null)
@@ -80,7 +82,6 @@ public class ProductServices
 
         return Result.Success();
     }
-
     public Result UpdateProduct(int id, string name, decimal price, string? description)
     {
         var product = _context.Products.FirstOrDefault(p => p.Id == id);
@@ -115,6 +116,13 @@ public class ProductServices
 
     private Result ChangeStock(int productId, int amount, bool increase)
     {
+        var validation = new ProductStockRequest(amount).Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
         var product = _context.Products.FirstOrDefault(p => p.Id == productId);
 
         if (product is null)
@@ -128,73 +136,43 @@ public class ProductServices
         _context.SaveChanges();
         return Result.Success();
     }
+    private static readonly Dictionary<string, Expression<Func<Product, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = p => p.Name,
+        ["price"] = p => p.Price,
+        ["stock"] = p => p.Stock
+    };
 
+    public Result<PagedResult<ProductGetAllResponse>> GetProducts(ProductQuery query)
+    {
+        var validation = query.Validate();
+
+        if (!validation.IsValid)
+        {
+            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+        }
+
+        if (query.SortBy is not null && !SortableColumns.ContainsKey(query.SortBy))
+        {
+            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError($"SortBy must be one of: {string.Join(", ", SortableColumns.Keys)}.");
+        }
+
+        var products = _context.Products.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var search = query.Search.Trim();
+            products = products.Where(p => p.Name.Contains(search) || (p.Description != null && p.Description.Contains(search)));
+        }
+
+        if (query.MinPrice.HasValue) products = products.Where(p => p.Price >= query.MinPrice.Value);
+        if (query.MaxPrice.HasValue) products = products.Where(p => p.Price <= query.MaxPrice.Value);
+
+        var paged = products.ApplySort(query.SortBy, query.Descending, SortableColumns, p => p.Id).ToPagedResult(query.Page, query.PageSize, ToGetAllResponse);
+
+        return Result<PagedResult<ProductGetAllResponse>>.Success(paged);
+    }
     private static ProductGetResponse ToGetResponse(Product product) => new(product.Id, product.Name, product.Price.ToString("F2"), product.Description, product.Stock);
 
     private static ProductGetAllResponse ToGetAllResponse(Product product) => new(product.Id, product.Name, product.Price.ToString("F2"), product.Description, product.Stock);
-
-
-    public Result<PagedResult<ProductGetAllResponse>> GetProducts(int page, int pageSize)
-    {
-        if (page < 1)
-        {
-            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError("Page must be greater than 0");
-        }
-
-        if (pageSize < 1)
-        {
-            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError("PageSize must be greater than 0");
-        }
-
-        var query = _context.Products.AsNoTracking().OrderBy(p => p.Id);
-
-        var totalItems = query.Count();
-
-        var totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
-
-        var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToList().Select(ToGetAllResponse).ToList();
-
-        return Result<PagedResult<ProductGetAllResponse>>.Success(new PagedResult<ProductGetAllResponse>
-        {
-            Items = items,
-            Page = page,
-            PageSize = pageSize,
-            TotalItems = totalItems,
-            TotalPages = totalPages
-        });
-    }
-
-    public Result<List<ProductGetAllResponse>> SearchProducts(string search)
-    {
-        var query = _context.Products.AsNoTracking().AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            search = search.Trim();
-            query = query.Where(p => p.Name.Contains(search) || (p.Description != null && p.Description.Contains(search)));
-        }
-
-        return Result<List<ProductGetAllResponse>>.Success(query.ToList().Select(ToGetAllResponse).ToList());
-    }
-
-    public Result<List<ProductGetAllResponse>> FilterProducts(decimal? minPrice, decimal? maxPrice)
-    {
-        if (minPrice.HasValue && maxPrice.HasValue && minPrice.Value > maxPrice.Value)
-        {
-            return Result<List<ProductGetAllResponse>>.BadRequestError("Minimum price cannot be greater than maximum price");
-        }
-        var query = _context.Products.AsNoTracking().AsQueryable();
-
-        if (minPrice.HasValue) query = query.Where(p => p.Price >= minPrice.Value);
-        if (maxPrice.HasValue) query = query.Where(p => p.Price <= maxPrice.Value);
-
-        return Result<List<ProductGetAllResponse>>.Success(query.ToList().Select(ToGetAllResponse).ToList());
-    }
-
-    public Result<List<ProductGetAllResponse>> SortProducts(bool ascending)
-    {
-        var query = ascending ? _context.Products.AsNoTracking().OrderBy(p => p.Price) : _context.Products.AsNoTracking().OrderByDescending(p => p.Price);
-
-        return Result<List<ProductGetAllResponse>>.Success(query.ToList().Select(ToGetAllResponse).ToList());
-    }
 }
