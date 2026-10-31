@@ -10,8 +10,7 @@ builder.Services.AddScoped<CartServices>();
 builder.Services.AddScoped<OrderServices>();
 builder.Services.AddScoped<UserServices>();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseInMemoryDatabase("ShahbaziStoreDb"));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
