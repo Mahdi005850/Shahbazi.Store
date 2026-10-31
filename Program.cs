@@ -22,6 +22,12 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 var app = builder.Build();
+var supportedCultures = new[] { "en", "fa" };
+
+app.UseRequestLocalization(options =>
+{
+    options.SetDefaultCulture("en").AddSupportedCultures(supportedCultures).AddSupportedUICultures(supportedCultures);
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();

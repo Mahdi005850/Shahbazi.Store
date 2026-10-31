@@ -1,10 +1,11 @@
 ﻿using Shahbazi.Store.Common.ResultPattern;
+using Shahbazi.Store.Resources;
 
 namespace Shahbazi.Store.Common.CodeResponse;
 
 public static class ApiResults
 {
-    private const string DefaultSuccessMessage = "عملیات با موفقیت انجام شد";
+    private static string DefaultSuccessMessage => Messages.Success;
 
     public static IResult ToHttpResult<T>(Result<T> result, ApiMessages? messages = null)
     {

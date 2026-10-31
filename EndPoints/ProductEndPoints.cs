@@ -1,5 +1,6 @@
 ﻿using Shahbazi.Store.DTOs.Queries;
 using Shahbazi.Store.DTOs.Requests;
+using Shahbazi.Store.Resources;
 using Shahbazi.Store.Services;
 using static Shahbazi.Store.Common.CodeResponse.ApiResults;
 
@@ -11,7 +12,7 @@ public static class ProductEndpoints
 
         group.MapPost("", (ProductCreateRequest request, ProductServices service) => ToCreatedResult(service.AddProduct(request.Name, request.Price, request.Description, request.Stock), p => $"/api/products/{p.Id}", new(Success: "Product created successfully.")));
 
-        group.MapGet("", ([AsParameters] ProductQuery query, ProductServices service) => ToHttpResult(service.GetProducts(query), new(Success: "Products retrieved successfully.")));
+        group.MapGet("", ([AsParameters] ProductQuery query, ProductServices service) => ToHttpResult(service.GetProducts(query), new(Success: Messages.ProductsRetrieved)));
 
         group.MapGet("/{id:int}", (int id, ProductServices service) => ToHttpResult(service.GetProduct(id), new(Success: "Product retrieved successfully.", BadRequest: "Product id is invalid.", NotFound: "Product not found.")));
 
