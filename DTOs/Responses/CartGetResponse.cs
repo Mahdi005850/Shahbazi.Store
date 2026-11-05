@@ -6,7 +6,7 @@ public record CartGetResponse(int Id, int UserId, DateTime CreatedAt, DateTime U
 
 public static class CartGetResponseExtensions
 {
-    public static CartGetResponse ToResponse(this Cart cart)
+    public static CartGetResponse ToGetResponse(this Cart cart)
     {
         return new CartGetResponse(
             cart.Id,

@@ -11,7 +11,7 @@ public static class ApiResults
     {
         if (result.IsSuccess)
         {
-            return TypedResults.Ok(new ApiResponse<T>(ResponseCodes.Success, messages?.Success ?? DefaultSuccessMessage, result.Value));
+            return TypedResults.Ok(new ApiResponse<T>(messages?.Success ?? DefaultSuccessMessage, result.Value));
         }
 
         return ToErrorResult(result.Error!, messages);
@@ -21,7 +21,7 @@ public static class ApiResults
     {
         if (result.IsSuccess)
         {
-            return TypedResults.Ok(new ApiResponse(ResponseCodes.Success, messages?.Success ?? DefaultSuccessMessage));
+            return TypedResults.Ok(new ApiResponse(messages?.Success ?? DefaultSuccessMessage));
         }
 
         return ToErrorResult(result.Error!, messages);
@@ -31,9 +31,9 @@ public static class ApiResults
     {
         return error.Type switch
         {
-            Error.ErrorType.BadRequest => TypedResults.BadRequest(new ApiResponse(ResponseCodes.BadRequest, messages?.BadRequest ?? error.Message)),
-            Error.ErrorType.NotFound => TypedResults.NotFound(new ApiResponse(ResponseCodes.NotFound, messages?.NotFound ?? error.Message)),
-            Error.ErrorType.Conflict => TypedResults.Conflict(new ApiResponse(ResponseCodes.Conflict, messages?.Conflict ?? error.Message)),
+            Error.ErrorType.BadRequest => TypedResults.BadRequest(new ApiResponse(messages?.BadRequest ?? error.Message)),
+            Error.ErrorType.NotFound => TypedResults.NotFound(new ApiResponse(messages?.NotFound ?? error.Message)),
+            Error.ErrorType.Conflict => TypedResults.Conflict(new ApiResponse(messages?.Conflict ?? error.Message)),
             _ => TypedResults.Problem(error.Message)
         };
     }
@@ -44,7 +44,7 @@ public static class ApiResults
             return ToErrorResult(result.Error!, messages);
         }
 
-        var body = new ApiResponse<T>(ResponseCodes.Success, messages?.Success ?? DefaultSuccessMessage, result.Value);
+        var body = new ApiResponse<T>(messages?.Success ?? DefaultSuccessMessage, result.Value);
 
         return TypedResults.Created(location(result.Value!), body);
     }

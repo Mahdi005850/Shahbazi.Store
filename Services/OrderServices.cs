@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using Shahbazi.Store.Common;
 using Shahbazi.Store.Common.Querying;
 using Shahbazi.Store.Common.ResultPattern;
@@ -23,37 +24,37 @@ public class OrderServices
         _cartServices = cartServices;
     }
 
-    public Result<OrderGetResponse> GetOrder(int orderId)
+    public async Task<Result<OrderGetResponse>> GetOrderAsync(int orderId)
     {
-        var order = GetOrderModel(orderId);
+        var order = await GetOrderModelAsync(orderId);
 
         if (!order.IsSuccess)
         {
             return order.ToFailure<OrderGetResponse>();
         }
-        return Result<OrderGetResponse>.Success(ToGetResponse(order.Value!));
+        return Result<OrderGetResponse>.Success(order.Value!.ToGetResponse());
     }
 
-    public Result<List<OrderGetAllResponse>> GetUserOrder(int userId)
+    public async Task<Result<List<OrderGetAllResponse>>> GetUserOrderAsync(int userId)
     {
         if (userId <= 0)
         {
             return Result<List<OrderGetAllResponse>>.BadRequestError("UserId is invalid !!");
         }
 
-        var orders = _context.Orders.Include(o => o.OrderItems).AsNoTracking().Where(o => o.UserId == userId).ToList();
+        var orders = await _context.Orders.Include(o => o.OrderItems).AsNoTracking().Where(o => o.UserId == userId).ToListAsync();
 
-        return Result<List<OrderGetAllResponse>>.Success(orders.Select(ToGetAllResponse).ToList());
+        return Result<List<OrderGetAllResponse>>.Success(orders.Select(o => o.ToGetAllResponse()).ToList());
     }
 
-    public Result<OrderGetResponse> CreateOrder(int userId, string shippingAddress)
+    public async Task<Result<OrderGetResponse>> CreateOrderAsync(int userId, string shippingAddress)
     {
-        if (!_context.Users.Any(u => u.Id == userId))
+        if (!await _context.Users.AnyAsync(u => u.Id == userId))
         {
             return Result<OrderGetResponse>.NotFoundError("User didn't find !!");
         }
 
-        var cartResult = _context.Carts.Include(c => c.CartItems).FirstOrDefault(c => c.UserId == userId);
+        var cartResult = await _context.Carts.Include(c => c.CartItems).FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (cartResult is null)
         {
@@ -69,7 +70,7 @@ public class OrderServices
 
         foreach (var cartItem in cart.CartItems)
         {
-            var product = _context.Products.FirstOrDefault(p => p.Id == cartItem.ProductId);
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == cartItem.ProductId);
 
             if (product is null)
             {
@@ -92,11 +93,12 @@ public class OrderServices
         var order = orderResult.Value!;
 
         _context.Orders.Add(order);
-        _context.SaveChanges();
+
+        await _context.SaveChangesAsync();
 
         foreach (var cartItem in cart.CartItems.ToList())
         {
-            var product = _context.Products.First(p => p.Id == cartItem.ProductId);
+            var product = await _context.Products.FirstAsync(p => p.Id == cartItem.ProductId);
 
             var orderItemResult = OrderItem.Create(order.Id, product.Id, cartItem.Quantity, cartItem.UnitPrice);
 
@@ -119,11 +121,13 @@ public class OrderServices
         }
 
         cart.Clear();
-        _context.SaveChanges();
 
-        return Result<OrderGetResponse>.Success(ToGetResponse(order));
+        await _context.SaveChangesAsync();
+
+        return Result<OrderGetResponse>.Success(order.ToGetResponse());
     }
-    public Result CancelOrder(int orderId)
+
+    public async Task<Result> CancelOrderAsync(int orderId)
     {
         var validation = new OrderDeleteRequest(orderId).Validate();
 
@@ -132,7 +136,7 @@ public class OrderServices
             return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        var orderResult = GetOrderModel(orderId);
+        var orderResult = await GetOrderModelAsync(orderId);
 
         if (!orderResult.IsSuccess)
         {
@@ -144,16 +148,18 @@ public class OrderServices
 
         foreach (var item in orderResult.Value!.OrderItems)
         {
-            var product = _context.Products.FirstOrDefault(p => p.Id == item.ProductId);
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == item.ProductId);
             product?.IncreaseStock(item.Quantity);
         }
-        _context.SaveChanges();
+
+        await _context.SaveChangesAsync();
+
         return Result.Success();
     }
 
-    public Result ChangeOrderStatus(int orderId, OrderStatus status)
+    public async Task<Result> ChangeOrderStatusAsync(int orderId, OrderStatus status)
     {
-        var orderResult = GetOrderModel(orderId);
+        var orderResult = await GetOrderModelAsync(orderId);
 
         if (!orderResult.IsSuccess)
         {
@@ -166,19 +172,19 @@ public class OrderServices
             return result;
         }
 
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
         return Result.Success();
     }
 
-    private Result<Order> GetOrderModel(int orderId)
+    private async Task<Result<Order>> GetOrderModelAsync(int orderId)
     {
         if (orderId <= 0)
         {
             return Result<Order>.BadRequestError("Order id is invalid !!");
         }
 
-        var order = _context.Orders.Include(o => o.OrderItems).FirstOrDefault(o => o.Id == orderId);
+        var order = await _context.Orders.Include(o => o.OrderItems).FirstOrDefaultAsync(o => o.Id == orderId);
 
         if (order is null)
         {
@@ -188,9 +194,9 @@ public class OrderServices
         return Result<Order>.Success(order);
     }
 
-    public Result UpdateOrderAddress(int orderId, string shippingAddress)
+    public async Task<Result> UpdateOrderAddressAsync(int orderId, string shippingAddress)
     {
-        var orderResult = GetOrderModel(orderId);
+        var orderResult = await GetOrderModelAsync(orderId);
 
         if (!orderResult.IsSuccess)
         {
@@ -211,7 +217,8 @@ public class OrderServices
             return result;
         }
 
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
+
         return Result.Success();
     }
     private static readonly Dictionary<string, Expression<Func<Order, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
@@ -220,7 +227,7 @@ public class OrderServices
         ["status"] = o => o.Status
     };
 
-    public Result<PagedResult<OrderGetAllResponse>> GetOrders(OrderQuery query)
+    public async Task<Result<PagedResult<OrderGetAllResponse>>> GetOrdersAsync(OrderQuery query)
     {
         var validation = query.Validate();
 
@@ -244,14 +251,8 @@ public class OrderServices
 
         if (query.ToDate.HasValue) orders = orders.Where(o => o.CreatedAt < query.ToDate.Value.Date.AddDays(1));
 
-        var paged = orders.ApplySort(query.SortBy, query.Descending, SortableColumns, o => o.Id).ToPagedResult(query.Page, query.PageSize, ToGetAllResponse);
+        var paged = await orders.ApplySort(query.SortBy, query.Descending, SortableColumns, o => o.Id).ToPagedResultAsync(query.Page, query.PageSize, o => o.ToGetAllResponse());
 
         return Result<PagedResult<OrderGetAllResponse>>.Success(paged);
     }
-
-    private static OrderGetResponse ToGetResponse(Order order) => new(order.Id, order.UserId, order.CreatedAt, order.Status, order.ShippingAddress, order.OrderItems.Sum(item => item.TotalPrice), order.OrderItems.Select(ToOrderItemResponse).ToList());
-
-    private static OrderGetAllResponse ToGetAllResponse(Order order) => new(order.Id, order.UserId, order.CreatedAt, order.Status, order.ShippingAddress, order.OrderItems.Sum(item => item.TotalPrice));
-
-    private static OrderItemGetResponse ToOrderItemResponse(OrderItem item) => new(item.Id, item.ProductId, item.Quantity, item.UnitPrice, item.TotalPrice);
 }

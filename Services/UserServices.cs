@@ -20,24 +20,24 @@ public class UserServices
         _context = context;
     }
 
-    public Result<UserGetResponse> GetUser(int userId)
+    public async Task<Result<UserGetResponse>> GetUserAsync(int userId)
     {
         if (userId <= 0)
         {
             return Result<UserGetResponse>.BadRequestError("User id is invalid");
         }
 
-        var user = _context.Users.AsNoTracking().FirstOrDefault(u => u.Id == userId);
+        var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
         {
             return Result<UserGetResponse>.NotFoundError("User didn't find !!");
         }
 
-        return Result<UserGetResponse>.Success(ToGetResponse(user));
+        return Result<UserGetResponse>.Success(user.ToGetResponse());
     }
 
-    public Result<UserGetResponse> AddUser(string fullName, string phoneNumber, string address)
+    public async Task<Result<UserGetResponse>> AddUserAsync(string fullName, string phoneNumber, string address)
     {
         var request = new UserCreateRequest(fullName, phoneNumber, address);
         var validation = request.Validate();
@@ -50,14 +50,15 @@ public class UserServices
         var user = new User(fullName, phoneNumber, address);
 
         _context.Users.Add(user);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
-        return Result<UserGetResponse>.Success(ToGetResponse(user));
+        return Result<UserGetResponse>.Success(user.ToGetResponse());
     }
 
-    public Result UpdateUser(int userId, string fullName, string phoneNumber, string address)
+    public async Task<Result> UpdateUserAsync(int userId, string fullName, string phoneNumber, string address)
     {
-        var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
         if (user is null)
         {
             return Result.NotFoundError("User didn't find !!");
@@ -73,11 +74,11 @@ public class UserServices
         }
 
         user.UpdateInformation(fullName, phoneNumber, address);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
         return Result.Success();
     }
-    public Result DeleteUser(int userId)
+    public async Task<Result> DeleteUserAsync(int userId)
     {
         var validation = new UserDeleteRequest(userId).Validate();
 
@@ -86,24 +87,27 @@ public class UserServices
             return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        var user = _context.Users.FirstOrDefault(u => u.Id == userId);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
         if (user is null)
         {
             return Result.NotFoundError("User didn't find !!");
         }
 
         _context.Users.Remove(user);
-        _context.SaveChanges();
+
+        await _context.SaveChangesAsync();
 
         return Result.Success();
     }
+
     private static readonly Dictionary<string, Expression<Func<User, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
     {
         ["fullName"] = u => u.FullName,
         ["phoneNumber"] = u => u.PhoneNumber
     };
 
-    public Result<PagedResult<UserGetAllResponse>> GetUsers(UserQuery query)
+    public async Task<Result<PagedResult<UserGetAllResponse>>> GetUsersAsync(UserQuery query)
     {
         var validation = query.Validate();
 
@@ -125,11 +129,8 @@ public class UserServices
             users = users.Where(u => u.FullName.Contains(search) || u.PhoneNumber.Contains(search));
         }
 
-        var paged = users.ApplySort(query.SortBy, query.Descending, SortableColumns, u => u.Id).ToPagedResult(query.Page, query.PageSize, ToGetAllResponse);
+        var paged = await users.ApplySort(query.SortBy, query.Descending, SortableColumns, u => u.Id).ToPagedResultAsync(query.Page, query.PageSize, u => u.ToGetAllResponse());
 
         return Result<PagedResult<UserGetAllResponse>>.Success(paged);
     }
-
-    private static UserGetResponse ToGetResponse(User user) => new(user.Id, user.FullName, user.PhoneNumber, user.Address);
-    private static UserGetAllResponse ToGetAllResponse(User user) => new(user.Id, user.FullName, user.PhoneNumber, user.Address);
 }

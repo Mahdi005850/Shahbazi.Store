@@ -1,4 +1,5 @@
-﻿using System.Linq.Expressions;
+﻿using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Shahbazi.Store.Common.Querying;
 
@@ -15,11 +16,14 @@ public static class QueryableExtensions
 
         return ordered.ThenBy(defaultKey);
     }
-    public static PagedResult<TResult> ToPagedResult<TSource, TResult>(this IQueryable<TSource> query, int page, int pageSize, Func<TSource, TResult> map)
-    {
-        var totalItems = query.Count();
 
-        var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToList().Select(map).ToList();
+    public static async Task<PagedResult<TResult>> ToPagedResultAsync<TSource, TResult>(this IQueryable<TSource> query, int page, int pageSize, Func<TSource, TResult> map)
+    {
+        var totalItems = await query.CountAsync();
+
+        var entities = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        var items = entities.Select(map).ToList();
 
         return new PagedResult<TResult>
         {

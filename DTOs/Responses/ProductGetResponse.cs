@@ -6,7 +6,7 @@ public record ProductGetResponse(int Id, string Name, string Price, string? Desc
 
 public static class ProductGetResponseExtensions
 {
-    public static ProductGetResponse ToResponse(this Product product)
+    public static ProductGetResponse ToGetResponse(this Product product)
     {
         return new ProductGetResponse(product.Id, product.Name, product.Price.ToString("F2"), product.Description, product.Stock);
     }

@@ -6,7 +6,7 @@ public record UserGetResponse(int Id, string FullName, string PhoneNumber, strin
 
 public static class UserGetResponseExtensions
 {
-    public static UserGetResponse ToResponse(this User user)
+    public static UserGetResponse ToGetResponse(this User user)
     {
         return new UserGetResponse(user.Id, user.FullName, user.PhoneNumber, user.Address);
     }

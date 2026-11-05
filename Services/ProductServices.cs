@@ -20,7 +20,7 @@ public class ProductServices
         _context = context;
     }
 
-    public Result<ProductGetResponse> AddProduct(string name, decimal price, string? description, int stock)
+    public async Task<Result<ProductGetResponse>> AddProductAsync(string name, decimal price, string? description, int stock)
     {
         var request = new ProductCreateRequest(name, price, description, stock);
         var validation = request.Validate();
@@ -40,28 +40,29 @@ public class ProductServices
         var product = productResult.Value!;
 
         _context.Products.Add(product);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
-        return Result<ProductGetResponse>.Success(ToGetResponse(product));
+        return Result<ProductGetResponse>.Success(product.ToGetResponse());
     }
 
-    public Result<ProductGetResponse> GetProduct(int id)
+    public async Task<Result<ProductGetResponse>> GetProductAsync(int id)
     {
         if (id <= 0)
         {
             return Result<ProductGetResponse>.BadRequestError("Product id is invalid");
         }
 
-        var product = _context.Products.AsNoTracking().FirstOrDefault(p => p.Id == id);
+        var product = await _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
 
         if (product is null)
         {
             return Result<ProductGetResponse>.NotFoundError("Product didn't find !!");
         }
 
-        return Result<ProductGetResponse>.Success(ToGetResponse(product));
+        return Result<ProductGetResponse>.Success(product.ToGetResponse());
     }
-    public Result DeleteProduct(int id)
+
+    public async Task<Result> DeleteProductAsync(int id)
     {
         var validation = new ProductDeleteRequest(id).Validate();
 
@@ -70,7 +71,7 @@ public class ProductServices
             return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        var product = _context.Products.FirstOrDefault(p => p.Id == id);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
 
         if (product is null)
         {
@@ -78,13 +79,14 @@ public class ProductServices
         }
 
         _context.Products.Remove(product);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
         return Result.Success();
     }
-    public Result UpdateProduct(int id, string name, decimal price, string? description)
+
+    public async Task<Result> UpdateProductAsync(int id, string name, decimal price, string? description)
     {
-        var product = _context.Products.FirstOrDefault(p => p.Id == id);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
 
         if (product is null)
         {
@@ -106,15 +108,15 @@ public class ProductServices
             return result;
         }
 
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
         return Result.Success();
     }
 
-    public Result IncreaseStock(int productId, int amount) => ChangeStock(productId, amount, true);
+    public Task<Result> IncreaseStockAsync(int productId, int amount) => ChangeStockAsync(productId, amount, true);
 
-    public Result DecreaseStock(int productId, int amount) => ChangeStock(productId, amount, false);
+    public Task<Result> DecreaseStockAsync(int productId, int amount) => ChangeStockAsync(productId, amount, false);
 
-    private Result ChangeStock(int productId, int amount, bool increase)
+    private async Task<Result> ChangeStockAsync(int productId, int amount, bool increase)
     {
         var validation = new ProductStockRequest(amount).Validate();
 
@@ -123,7 +125,7 @@ public class ProductServices
             return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        var product = _context.Products.FirstOrDefault(p => p.Id == productId);
+        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
 
         if (product is null)
         {
@@ -133,9 +135,10 @@ public class ProductServices
         var result = increase ? product.IncreaseStock(amount) : product.DecreaseStock(amount);
         if (!result.IsSuccess) return result;
 
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
         return Result.Success();
     }
+
     private static readonly Dictionary<string, Expression<Func<Product, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
     {
         ["name"] = p => p.Name,
@@ -143,7 +146,7 @@ public class ProductServices
         ["stock"] = p => p.Stock
     };
 
-    public Result<PagedResult<ProductGetAllResponse>> GetProducts(ProductQuery query)
+    public async Task<Result<PagedResult<ProductGetAllResponse>>> GetProductsAsync(ProductQuery query)
     {
         var validation = query.Validate();
 
@@ -168,11 +171,8 @@ public class ProductServices
         if (query.MinPrice.HasValue) products = products.Where(p => p.Price >= query.MinPrice.Value);
         if (query.MaxPrice.HasValue) products = products.Where(p => p.Price <= query.MaxPrice.Value);
 
-        var paged = products.ApplySort(query.SortBy, query.Descending, SortableColumns, p => p.Id).ToPagedResult(query.Page, query.PageSize, ToGetAllResponse);
+        var paged = await products.ApplySort(query.SortBy, query.Descending, SortableColumns, p => p.Id).ToPagedResultAsync(query.Page, query.PageSize, p => p.ToGetAllResponse());
 
         return Result<PagedResult<ProductGetAllResponse>>.Success(paged);
     }
-    private static ProductGetResponse ToGetResponse(Product product) => new(product.Id, product.Name, product.Price.ToString("F2"), product.Description, product.Stock);
-
-    private static ProductGetAllResponse ToGetAllResponse(Product product) => new(product.Id, product.Name, product.Price.ToString("F2"), product.Description, product.Stock);
 }

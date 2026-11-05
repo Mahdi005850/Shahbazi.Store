@@ -7,7 +7,7 @@ public record OrderGetResponse(int Id, int UserId, DateTime CreatedAt, OrderStat
 
 public static class OrderGetResponseExtensions
 {
-    public static OrderGetResponse ToResponse(this Order order)
+    public static OrderGetResponse ToGetResponse(this Order order)
     {
         var items = order.OrderItems.Select(item => new OrderItemGetResponse(item.Id, item.ProductId, item.Quantity, item.UnitPrice, item.TotalPrice)).ToList();
 
