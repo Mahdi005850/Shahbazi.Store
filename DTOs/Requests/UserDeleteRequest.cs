@@ -12,7 +12,7 @@ internal static class UserDeleteRequestExtensions
 
         if (request.Id <= 0)
         {
-            errors.Add(new(nameof(request.Id),"Id must be greater than zero."));
+            errors.Add(new(nameof(request.Id), "User id is invalid."));
         }
 
         return new ValidationResult(errors.ToArray());

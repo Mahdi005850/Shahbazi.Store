@@ -12,7 +12,7 @@ internal static class CartDeleteRequestExtensions
 
         if (request.UserId <= 0)
         {
-            errors.Add(new(nameof(request.UserId), "UserId must be greater than zero."));
+            errors.Add(new(nameof(request.UserId), "User id is invalid."));
         }
 
         return new ValidationResult(errors.ToArray());

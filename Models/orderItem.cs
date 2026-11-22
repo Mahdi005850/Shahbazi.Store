@@ -21,20 +21,21 @@ public class OrderItem
     {
         if (orderId <= 0)
         {
-            return Result<OrderItem>.BadRequestError("OrderId Cannot be 0 !!");
+            Result<OrderItem>.InvalidId("Order");
         }
         if (productId <= 0)
         {
-            return Result<OrderItem>.BadRequestError("ProductId Cannot be 0 !!");
+            Result<OrderItem>.InvalidId("Product");
         }
         if (quantity <= 0)
         {
-            return Result<OrderItem>.BadRequestError("Quantity mmust be more than 0 !!");
+            Result<OrderItem>.BadRequestError("Quantity must be greater than zero.");
         }
         if (unitPrice <= 0)
         {
-            return Result<OrderItem>.BadRequestError("Price Cannot be under 0 !!");
+            Result<OrderItem>.BadRequestError("Price must be greater than zero.");
         }
+
         return Result<OrderItem>.Success(new OrderItem(orderId, productId, quantity, unitPrice));
     }
 }

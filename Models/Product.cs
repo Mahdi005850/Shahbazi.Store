@@ -20,23 +20,24 @@ public class Product
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            return Result<Product>.BadRequestError("The productName id neccesary!!");
+            Result<Product>.BadRequestError("Name is required.");
         }
-        if (price < 0)
+        if (price <= 0)
         {
-            return Result<Product>.BadRequestError("The price can not be negative !!");
+            Result<Product>.BadRequestError("Price must be greater than zero.");
         }
         if (stock < 0)
         {
-            return Result<Product>.BadRequestError("Stock Can not be negative !!");
+            Result<Product>.BadRequestError("Stock cannot be negative.");
         }
+
         return Result<Product>.Success(new Product(name, price, description, stock));
     }
     public Result IncreaseStock(int amount)
     {
         if (amount <= 0)
         {
-            return Result.BadRequestError("The amount must be more than 0 !!");
+            Result.BadRequestError("Amount must be greater than zero.");
         }
         Stock += amount;
         return Result.Success();
@@ -45,20 +46,20 @@ public class Product
     {
         if (amount <= 0)
         {
-            return Result.BadRequestError("The amount must be more than 0!!");
+            Result.BadRequestError("Amount must be greater than zero.");
         }
         if (Stock < amount)
         {
-            return Result.ConflictError("No Enough Stock!!");
+            Result.ConflictError("Not enough stock for this product.");
         }
         Stock -= amount;
         return Result.Success();
     }
     public Result ChangePrice(decimal newPrice)
     {
-        if (newPrice < 0)
+        if (newPrice <= 0)
         {
-            return Result.BadRequestError("Price can not be 0 !!");
+            Result.BadRequestError("Price must be greater than zero.");
         }
         Price = newPrice;
         return Result.Success();
@@ -67,11 +68,11 @@ public class Product
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            return Result.BadRequestError("The productName Cannot be empty !!");
+            Result.BadRequestError("Name is required.");
         }
-        if (price < 0)
+        if (price <= 0)
         {
-            return Result.BadRequestError("The price Can not be negative !!");
+            Result.BadRequestError("Price must be greater than zero.");
         }
         Name = name;
         Price = price;

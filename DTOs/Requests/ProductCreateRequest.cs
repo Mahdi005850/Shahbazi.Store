@@ -7,10 +7,6 @@ public record ProductCreateRequest(string Name, decimal Price, string? Descripti
 
 internal static class ProductCreateRequestExtensions
 {
-    public static Product ToModel(this ProductCreateRequest request)
-    {
-        return new Product(request.Name, request.Price, request.Description, request.Stock);
-    }
     public static ValidationResult Validate(this ProductCreateRequest request)
     {
         var errors = new List<ValidationResult.ValidationError>();

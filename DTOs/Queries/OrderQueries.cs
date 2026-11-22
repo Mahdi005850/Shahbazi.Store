@@ -4,7 +4,7 @@ using Shahbazi.Store.Enums;
 
 namespace Shahbazi.Store.DTOs.Queries;
 
-public record OrderQuery(int? UserId = null, OrderStatus? Status = null, DateTime? FromDate = null, DateTime? ToDate = null, string? SortBy = null, bool Descending = true, int Page = 1, int PageSize = 10);
+public record OrderQuery(int? UserId = null, OrderStatus? Status = null, DateTime? FromDate = null, DateTime? ToDate = null, int Page = 1, int PageSize = 10);
 
 internal static class OrderQueryExtensions
 {

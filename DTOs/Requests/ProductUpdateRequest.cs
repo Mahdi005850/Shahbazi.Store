@@ -27,8 +27,4 @@ internal static class ProductUpdateRequestExtensions
 
         return new ValidationResult(errors.ToArray());
     }
-    public static void ApplyTo(this ProductUpdateRequest request, Product product)
-    {
-        product.UpdateInformation(request.Name, request.Price, request.Description ?? string.Empty);
-    }
 }

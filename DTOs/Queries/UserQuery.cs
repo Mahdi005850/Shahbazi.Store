@@ -3,7 +3,7 @@ using Shahbazi.Store.Common.Querying;
 
 namespace Shahbazi.Store.DTOs.Queries;
 
-public record UserQuery(string? Search = null, string? SortBy = null, bool Descending = false, int Page = 1, int PageSize = 10);
+public record UserQuery(string? Search = null, int Page = 1, int PageSize = 10);
 
 internal static class UserQueryExtensions
 {

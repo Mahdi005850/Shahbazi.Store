@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Cors.Infrastructure;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs.Requests;
@@ -12,7 +11,7 @@ public class CartServices
 {
     private readonly AppDbContext _context;
 
-    public CartServices(ProductServices productServices, AppDbContext context)
+    public CartServices(AppDbContext context)
     {
         _context = context;
     }
@@ -26,24 +25,24 @@ public class CartServices
             return cartResult.ToFailure<CartGetResponse>();
         }
 
-        return Result<CartGetResponse>.Success(cartResult.Value!.ToGetResponse());
+        return Result<CartGetResponse>.Success(cartResult.Value!.ToGetResponse(), "Cart retrieved successfully.");
     }
 
     public async Task<Result<CartGetResponse>> CreateCartAsync(int userId)
     {
         if (userId <= 0)
         {
-            return Result<CartGetResponse>.BadRequestError("Invalid UserId !!");
+            return Result<CartGetResponse>.InvalidId("User");
         }
 
         if (!await _context.Users.AnyAsync(u => u.Id == userId))
         {
-            return Result<CartGetResponse>.NotFoundError("User didn't find !!");
+            return Result<CartGetResponse>.NotFound("User");
         }
 
         if (await _context.Carts.AnyAsync(c => c.UserId == userId))
         {
-            return Result<CartGetResponse>.ConflictError("This User has an existing Cart !!");
+            return Result<CartGetResponse>.ConflictError("This user already has a cart.");
         }
 
         var cartResult = Cart.Create(userId);
@@ -59,21 +58,21 @@ public class CartServices
 
         await _context.SaveChangesAsync();
 
-        return Result<CartGetResponse>.Success(cart.ToGetResponse());
+        return Result<CartGetResponse>.Success(cart.ToGetResponse(), "Cart created successfully.");
     }
 
     public async Task<Result<List<CartGetAllResponse>>> GetAllCartsAsync()
     {
         var carts = await _context.Carts.Include(c => c.CartItems).AsNoTracking().ToListAsync();
 
-        return Result<List<CartGetAllResponse>>.Success(carts.Select(c => c.ToGetAllResponse()).ToList());
+        return Result<List<CartGetAllResponse>>.Success(carts.Select(c => c.ToGetAllResponse()).ToList(), "Carts retrieved successfully.");
     }
 
     public async Task<Result> AddToCartAsync(int userId, int productId, int quantity)
     {
         if (quantity <= 0)
         {
-            return Result.BadRequestError("Quantity must be greater than 0 !!");
+            return Result.BadRequestError("Quantity must be greater than zero.");
         }
 
         var cartResult = await GetCartModelAsync(userId);
@@ -87,7 +86,7 @@ public class CartServices
 
         if (product is null)
         {
-            return Result.NotFoundError("Product didn't find !!");
+            return Result.NotFound("Product");
         }
 
         var cart = cartResult.Value!;
@@ -98,7 +97,7 @@ public class CartServices
 
         if (requestedTotal > product.Stock)
         {
-            return Result.ConflictError("Not enough stock !!");
+            return Result.ConflictError("Not enough stock for this product.");
         }
 
         if (existingItem is not null)
@@ -123,7 +122,7 @@ public class CartServices
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Item added to cart successfully.");
     }
     public async Task<Result> RemoveFromCartAsync(int userId, int productId)
     {
@@ -144,20 +143,20 @@ public class CartServices
         var cart = cartResult.Value!;
         var item = cart.CartItems.FirstOrDefault(x => x.ProductId == productId);
 
-        if (item is null) return Result.NotFoundError("Product is not in the cart !!");
+        if (item is null) return Result.NotFoundError("Product is not in the cart.");
 
         var result = cart.RemoveItem(item);
         if (!result.IsSuccess) return result;
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Item removed from cart successfully.");
     }
     public async Task<Result> IncreaseQuantityAsync(int userId, int productId, int amount)
     {
         if (amount <= 0)
         {
-            return Result.BadRequestError("Amount must be greater than 0 !!");
+            return Result.BadRequestError("Amount must be greater than zero.");
         }
 
         var cartResult = await GetCartModelAsync(userId);
@@ -173,19 +172,19 @@ public class CartServices
 
         if (item is null)
         {
-            return Result.NotFoundError("Product is not in the cart !!");
+            return Result.NotFoundError("Product is not in the cart.");
         }
 
         var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId);
 
         if (product is null)
         {
-            return Result.NotFoundError("Product didn't find !!");
+            return Result.NotFound("Product");
         }
 
         if (item.Quantity + amount > product.Stock)
         {
-            return Result.ConflictError("Not enough stock !!");
+            return Result.ConflictError("Not enough stock for this product.");
         }
 
         var result = item.IncreaseQuantity(amount);
@@ -197,14 +196,14 @@ public class CartServices
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Item quantity increased successfully.");
     }
 
     public async Task<Result> DecreaseQuantityAsync(int userId, int productId, int amount)
     {
         if (amount <= 0)
         {
-            return Result.BadRequestError("Amount must be greater than 0 !!");
+            return Result.BadRequestError("Amount must be greater than zero.");
         }
 
         var cartResult = await GetCartModelAsync(userId);
@@ -218,7 +217,7 @@ public class CartServices
 
         if (item is null)
         {
-            return Result.NotFoundError("Product is not in the cart !!");
+            return Result.NotFoundError("Product is not in the cart.");
         }
 
         var result = item.DecreaseQuantity(amount);
@@ -230,7 +229,7 @@ public class CartServices
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Item quantity decreased successfully.");
     }
     public async Task<Result> ClearCartAsync(int userId)
     {
@@ -257,20 +256,20 @@ public class CartServices
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Cart cleared successfully.");
     }
     private async Task<Result<Cart>> GetCartModelAsync(int userId)
     {
         if (userId <= 0)
         {
-            return Result<Cart>.BadRequestError("UserId is invalid !!");
+            return Result<Cart>.InvalidId("User");
         }
 
         var cart = await _context.Carts.Include(c => c.CartItems).FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (cart is null)
         {
-            return Result<Cart>.NotFoundError("Cart didn't find !!");
+            return Result<Cart>.NotFound("Cart");
         }
 
         return Result<Cart>.Success(cart);

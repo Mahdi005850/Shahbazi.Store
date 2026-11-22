@@ -15,18 +15,18 @@ public class Order
     {
         UserId = userId;
         ShippingAddress = shippingAddress;
-        CreatedAt = DateTime.Now;
+        CreatedAt = DateTime.UtcNow;
         Status = OrderStatus.Pending;
     }
     public static Result<Order> Create(int userId, string shippingAddress)
     {
         if (userId <= 0)
         {
-            return Result<Order>.BadRequestError("Invalid UserId !!");
+            Result<Order>.InvalidId("User");
         }
         if (string.IsNullOrWhiteSpace(shippingAddress))
         {
-            return Result<Order>.BadRequestError("Address Cannot be Empty , Please Enter your address !!");
+            Result<Order>.BadRequestError("Shipping address is required.");
         }
         return Result<Order>.Success(new Order(userId, shippingAddress));
     }
@@ -34,7 +34,7 @@ public class Order
     {
         if (item == null)
         {
-            return Result.BadRequestError("OrderItem is invalid !!");
+            Result.BadRequestError("Order item is invalid.");
         }
         OrderItems.Add(item);
         return Result.Success();
@@ -53,7 +53,7 @@ public class Order
     {
         if (!AllowedTransitions[Status].Contains(status))
         {
-            return Result.ConflictError($"Can not change order status from {Status} to {status} !!");
+            Result.ConflictError($"Cannot change order status from {Status} to {status}.");
         }
 
         Status = status;
@@ -63,12 +63,12 @@ public class Order
     {
         if (Status == OrderStatus.Cancelled)
         {
-            return Result.ConflictError("Order is already cancelled !!");
+            Result.ConflictError("Order is already cancelled.");
         }
 
         if (Status == OrderStatus.Delivered)
         {
-            return Result.ConflictError("Can not Cancel Delivered item !!");
+            Result.ConflictError("A delivered order cannot be cancelled.");
         }
 
         Status = OrderStatus.Cancelled;
@@ -79,12 +79,12 @@ public class Order
     {
         if (string.IsNullOrWhiteSpace(shippingAddress))
         {
-            return Result.BadRequestError("Address Cannot be Empty , Please Enter your address !!");
+            Result.BadRequestError("Shipping address is required.");
         }
 
         if (Status is OrderStatus.Shipped or OrderStatus.Delivered or OrderStatus.Cancelled)
         {
-            return Result.ConflictError("The address of this order can no longer be changed !!");
+            Result.ConflictError("The address of this order can no longer be changed.");
         }
 
         ShippingAddress = shippingAddress;

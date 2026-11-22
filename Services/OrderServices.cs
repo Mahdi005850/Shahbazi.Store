@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Cors.Infrastructure;
-using Microsoft.EntityFrameworkCore;
-using Shahbazi.Store.Common;
+﻿using Microsoft.EntityFrameworkCore;
 using Shahbazi.Store.Common.Querying;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Data;
@@ -9,19 +7,16 @@ using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Enums;
 using Shahbazi.Store.Models;
-using System.Linq.Expressions;
 
 namespace Shahbazi.Store.Services;
 
 public class OrderServices
 {
     private readonly AppDbContext _context;
-    private readonly CartServices _cartServices;
 
-    public OrderServices(AppDbContext context, CartServices cartServices, ProductServices productServices)
+    public OrderServices(AppDbContext context)
     {
         _context = context;
-        _cartServices = cartServices;
     }
 
     public async Task<Result<OrderGetResponse>> GetOrderAsync(int orderId)
@@ -32,40 +27,40 @@ public class OrderServices
         {
             return order.ToFailure<OrderGetResponse>();
         }
-        return Result<OrderGetResponse>.Success(order.Value!.ToGetResponse());
+        return Result<OrderGetResponse>.Success(order.Value!.ToGetResponse(), "Order retrieved successfully.");
     }
 
     public async Task<Result<List<OrderGetAllResponse>>> GetUserOrderAsync(int userId)
     {
         if (userId <= 0)
         {
-            return Result<List<OrderGetAllResponse>>.BadRequestError("UserId is invalid !!");
+            return Result<List<OrderGetAllResponse>>.InvalidId("User");
         }
 
         var orders = await _context.Orders.Include(o => o.OrderItems).AsNoTracking().Where(o => o.UserId == userId).ToListAsync();
 
-        return Result<List<OrderGetAllResponse>>.Success(orders.Select(o => o.ToGetAllResponse()).ToList());
+        return Result<List<OrderGetAllResponse>>.Success(orders.Select(o => o.ToGetAllResponse()).ToList(), "User orders retrieved successfully.");
     }
 
     public async Task<Result<OrderGetResponse>> CreateOrderAsync(int userId, string shippingAddress)
     {
         if (!await _context.Users.AnyAsync(u => u.Id == userId))
         {
-            return Result<OrderGetResponse>.NotFoundError("User didn't find !!");
+            return Result<OrderGetResponse>.NotFound("User");
         }
 
         var cartResult = await _context.Carts.Include(c => c.CartItems).FirstOrDefaultAsync(c => c.UserId == userId);
 
         if (cartResult is null)
         {
-            return Result<OrderGetResponse>.NotFoundError("Cart didn't find !!");
+            return Result<OrderGetResponse>.NotFound("Cart");
         }
 
         var cart = cartResult;
 
         if (!cart.CartItems.Any())
         {
-            return Result<OrderGetResponse>.BadRequestError("Cart is Empty !!");
+            return Result<OrderGetResponse>.BadRequestError("Cart is empty.");
         }
 
         foreach (var cartItem in cart.CartItems)
@@ -74,12 +69,12 @@ public class OrderServices
 
             if (product is null)
             {
-                return Result<OrderGetResponse>.NotFoundError("Product didn't find !!");
+                return Result<OrderGetResponse>.NotFound("Product");
             }
 
             if (cartItem.Quantity > product.Stock)
             {
-                return Result<OrderGetResponse>.ConflictError("Not enough stock !!");
+                return Result<OrderGetResponse>.ConflictError("Not enough stock for one or more products.");
             }
         }
 
@@ -124,7 +119,7 @@ public class OrderServices
 
         await _context.SaveChangesAsync();
 
-        return Result<OrderGetResponse>.Success(order.ToGetResponse());
+        return Result<OrderGetResponse>.Success(order.ToGetResponse(), "Order created successfully.");
     }
 
     public async Task<Result> CancelOrderAsync(int orderId)
@@ -154,7 +149,7 @@ public class OrderServices
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Order cancelled successfully.");
     }
 
     public async Task<Result> ChangeOrderStatusAsync(int orderId, OrderStatus status)
@@ -174,21 +169,21 @@ public class OrderServices
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Order status updated successfully.");
     }
 
     private async Task<Result<Order>> GetOrderModelAsync(int orderId)
     {
         if (orderId <= 0)
         {
-            return Result<Order>.BadRequestError("Order id is invalid !!");
+            return Result<Order>.InvalidId("Order");
         }
 
         var order = await _context.Orders.Include(o => o.OrderItems).FirstOrDefaultAsync(o => o.Id == orderId);
 
         if (order is null)
         {
-            return Result<Order>.NotFoundError("Order didn't find !!");
+            return Result<Order>.NotFound("Order");
         }
 
         return Result<Order>.Success(order);
@@ -219,26 +214,16 @@ public class OrderServices
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Order address updated successfully.");
     }
-    private static readonly Dictionary<string, Expression<Func<Order, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["createdAt"] = o => o.CreatedAt,
-        ["status"] = o => o.Status
-    };
 
-    public async Task<Result<PagedResult<OrderGetAllResponse>>> GetOrdersAsync(OrderQuery query)
+    public async Task<Result<List<OrderGetAllResponse>>> GetOrdersAsync(OrderQuery query)
     {
         var validation = query.Validate();
 
         if (!validation.IsValid)
         {
-            return Result<PagedResult<OrderGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
-        }
-
-        if (query.SortBy is not null && !SortableColumns.ContainsKey(query.SortBy))
-        {
-            return Result<PagedResult<OrderGetAllResponse>>.BadRequestError($"SortBy must be one of: {string.Join(", ", SortableColumns.Keys)}.");
+            return Result<List<OrderGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
         var orders = _context.Orders.AsNoTracking().Include(o => o.OrderItems).AsQueryable();
@@ -251,8 +236,12 @@ public class OrderServices
 
         if (query.ToDate.HasValue) orders = orders.Where(o => o.CreatedAt < query.ToDate.Value.Date.AddDays(1));
 
-        var paged = await orders.ApplySort(query.SortBy, query.Descending, SortableColumns, o => o.Id).ToPagedResultAsync(query.Page, query.PageSize, o => o.ToGetAllResponse());
+        var items = await orders
+            .OrderBy(o => o.Id)
+            .Page(query.Page, query.PageSize)
+            .ToGetAllResponses()
+            .ToListAsync();
 
-        return Result<PagedResult<OrderGetAllResponse>>.Success(paged);
+        return Result<List<OrderGetAllResponse>>.Success(items, "Orders retrieved successfully.");
     }
 }

@@ -1,11 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Shahbazi.Store.Common;
 using Shahbazi.Store.Common.ResultPattern;
+using Shahbazi.Store.Resources;
 using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Models;
-using System.Linq.Expressions;
 using Shahbazi.Store.Common.Querying;
 using Shahbazi.Store.DTOs.Queries;
 
@@ -42,24 +41,24 @@ public class ProductServices
         _context.Products.Add(product);
         await _context.SaveChangesAsync();
 
-        return Result<ProductGetResponse>.Success(product.ToGetResponse());
+        return Result<ProductGetResponse>.Success(product.ToGetResponse(), "Product created successfully.");
     }
 
     public async Task<Result<ProductGetResponse>> GetProductAsync(int id)
     {
         if (id <= 0)
         {
-            return Result<ProductGetResponse>.BadRequestError("Product id is invalid");
+            return Result<ProductGetResponse>.InvalidId("Product");
         }
 
         var product = await _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
 
         if (product is null)
         {
-            return Result<ProductGetResponse>.NotFoundError("Product didn't find !!");
+            return Result<ProductGetResponse>.NotFound("Product");
         }
 
-        return Result<ProductGetResponse>.Success(product.ToGetResponse());
+        return Result<ProductGetResponse>.Success(product.ToGetResponse(), "Product retrieved successfully.");
     }
 
     public async Task<Result> DeleteProductAsync(int id)
@@ -75,13 +74,13 @@ public class ProductServices
 
         if (product is null)
         {
-            return Result.NotFoundError("Product didn't find !!");
+            return Result.NotFound("Product");
         }
 
         _context.Products.Remove(product);
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("Product deleted successfully.");
     }
 
     public async Task<Result> UpdateProductAsync(int id, string name, decimal price, string? description)
@@ -90,7 +89,7 @@ public class ProductServices
 
         if (product is null)
         {
-            return Result.NotFoundError("Product didn't find !!");
+            return Result.NotFound("Product");
         }
 
         var request = new ProductUpdateRequest(name, price, description);
@@ -109,7 +108,7 @@ public class ProductServices
         }
 
         await _context.SaveChangesAsync();
-        return Result.Success();
+        return Result.Success("Product updated successfully.");
     }
 
     public Task<Result> IncreaseStockAsync(int productId, int amount) => ChangeStockAsync(productId, amount, true);
@@ -129,50 +128,42 @@ public class ProductServices
 
         if (product is null)
         {
-            return Result.NotFoundError("Product didn't find !!");
+            return Result.NotFound("Product");
         }
 
         var result = increase ? product.IncreaseStock(amount) : product.DecreaseStock(amount);
         if (!result.IsSuccess) return result;
 
         await _context.SaveChangesAsync();
-        return Result.Success();
+        return Result.Success(increase ? "Product stock increased successfully." : "Product stock decreased successfully.");
     }
-
-    private static readonly Dictionary<string, Expression<Func<Product, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["name"] = p => p.Name,
-        ["price"] = p => p.Price,
-        ["stock"] = p => p.Stock
-    };
-
-    public async Task<Result<PagedResult<ProductGetAllResponse>>> GetProductsAsync(ProductQuery query)
+    public async Task<Result<List<ProductGetAllResponse>>> GetProductsAsync(ProductQuery query)
     {
         var validation = query.Validate();
 
         if (!validation.IsValid)
         {
-            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+            return Result<List<ProductGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        if (query.SortBy is not null && !SortableColumns.ContainsKey(query.SortBy))
-        {
-            return Result<PagedResult<ProductGetAllResponse>>.BadRequestError($"SortBy must be one of: {string.Join(", ", SortableColumns.Keys)}.");
-        }
-
-        var products = _context.Products.AsNoTracking().AsQueryable();
+        var productsQuery = _context.Products.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var search = query.Search.Trim();
-            products = products.Where(p => p.Name.Contains(search) || (p.Description != null && p.Description.Contains(search)));
+            productsQuery = productsQuery.Where(p => p.Name.Contains(search) || (p.Description != null && p.Description.Contains(search)));
         }
 
-        if (query.MinPrice.HasValue) products = products.Where(p => p.Price >= query.MinPrice.Value);
-        if (query.MaxPrice.HasValue) products = products.Where(p => p.Price <= query.MaxPrice.Value);
+        if (query.MinPrice.HasValue) productsQuery = productsQuery.Where(p => p.Price >= query.MinPrice.Value);
+        if (query.MaxPrice.HasValue) productsQuery = productsQuery.Where(p => p.Price <= query.MaxPrice.Value);
 
-        var paged = await products.ApplySort(query.SortBy, query.Descending, SortableColumns, p => p.Id).ToPagedResultAsync(query.Page, query.PageSize, p => p.ToGetAllResponse());
+        var products = await productsQuery
+            .OrderBy(p => p.Id)
+            .Page(query.Page, query.PageSize)
+            .ToListAsync();
 
-        return Result<PagedResult<ProductGetAllResponse>>.Success(paged);
+        var items = products.Select(p => p.ToGetAllResponse()).ToList();
+
+        return Result<List<ProductGetAllResponse>>.Success(items, Messages.ProductsRetrieved);
     }
 }

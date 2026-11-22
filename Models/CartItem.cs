@@ -21,19 +21,19 @@ public class CartItem
     {
         if (cartId <= 0)
         {
-            return Result<CartItem>.BadRequestError("CartId is Invalid !!");
+            Result<CartItem>.InvalidId("Cart");
         }
         if (productId <= 0)
         {
-            return Result<CartItem>.BadRequestError("ProductId is Invalid !!");
+            Result<CartItem>.InvalidId("Product");
         }
         if (quantity <= 0)
         {
-            return Result<CartItem>.BadRequestError("Quantity must be more !!");
+            Result<CartItem>.BadRequestError("Quantity must be greater than zero.");
         }
         if (unitPrice <= 0)
         {
-            return Result<CartItem>.BadRequestError("Price Can not be 0 !!");
+            Result<CartItem>.BadRequestError("Price must be greater than zero.");
         }
         return Result<CartItem>.Success(
             new CartItem(cartId, productId, quantity, unitPrice));
@@ -42,7 +42,7 @@ public class CartItem
     {
         if (amount <= 0)
         {
-            return Result.BadRequestError("The Amount must be more than 0 !!");
+            Result.BadRequestError("Amount must be greater than zero.");
         }
         Quantity += amount;
         return Result.Success();
@@ -51,11 +51,11 @@ public class CartItem
     {
         if (amount <= 0)
         {
-            return Result.BadRequestError("The Amount must be more than 0 !!");
+            Result.BadRequestError("Amount must be greater than zero.");
         }
         if (Quantity - amount < 1)
         {
-            return Result.BadRequestError("The Quantity Of Product Can not be less than 1 !!");
+            Result.BadRequestError("Quantity cannot be less than 1.");
         }
         Quantity -= amount;
         return Result.Success();
@@ -64,7 +64,7 @@ public class CartItem
     {
         if (quantity < 1)
         {
-            return Result.BadRequestError("Quantity AtLeast most be 1!!");
+            Result.BadRequestError("Quantity must be at least 1.");
         }
         Quantity = quantity;
         return Result.Success();

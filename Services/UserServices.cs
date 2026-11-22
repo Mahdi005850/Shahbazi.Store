@@ -24,17 +24,17 @@ public class UserServices
     {
         if (userId <= 0)
         {
-            return Result<UserGetResponse>.BadRequestError("User id is invalid");
+            return Result<UserGetResponse>.InvalidId("User");
         }
 
         var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
         {
-            return Result<UserGetResponse>.NotFoundError("User didn't find !!");
+            return Result<UserGetResponse>.NotFound("User");
         }
 
-        return Result<UserGetResponse>.Success(user.ToGetResponse());
+        return Result<UserGetResponse>.Success(user.ToGetResponse(), "User retrieved successfully.");
     }
 
     public async Task<Result<UserGetResponse>> AddUserAsync(string fullName, string phoneNumber, string address)
@@ -52,7 +52,7 @@ public class UserServices
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return Result<UserGetResponse>.Success(user.ToGetResponse());
+        return Result<UserGetResponse>.Success(user.ToGetResponse(), "User created successfully.");
     }
 
     public async Task<Result> UpdateUserAsync(int userId, string fullName, string phoneNumber, string address)
@@ -61,7 +61,7 @@ public class UserServices
 
         if (user is null)
         {
-            return Result.NotFoundError("User didn't find !!");
+            return Result.NotFound("User");
         }
 
         var request = new UserUpdateRequest(fullName, phoneNumber, address);
@@ -76,7 +76,7 @@ public class UserServices
         user.UpdateInformation(fullName, phoneNumber, address);
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("User updated successfully.");
     }
     public async Task<Result> DeleteUserAsync(int userId)
     {
@@ -91,46 +91,40 @@ public class UserServices
 
         if (user is null)
         {
-            return Result.NotFoundError("User didn't find !!");
+            return Result.NotFound("User");
         }
 
         _context.Users.Remove(user);
 
         await _context.SaveChangesAsync();
 
-        return Result.Success();
+        return Result.Success("User deleted successfully.");
     }
 
-    private static readonly Dictionary<string, Expression<Func<User, object>>> SortableColumns = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["fullName"] = u => u.FullName,
-        ["phoneNumber"] = u => u.PhoneNumber
-    };
-
-    public async Task<Result<PagedResult<UserGetAllResponse>>> GetUsersAsync(UserQuery query)
+    public async Task<Result<List<UserGetAllResponse>>> GetUsersAsync(UserQuery query)
     {
         var validation = query.Validate();
 
         if (!validation.IsValid)
         {
-            return Result<PagedResult<UserGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
+            return Result<List<UserGetAllResponse>>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        if (query.SortBy is not null && !SortableColumns.ContainsKey(query.SortBy))
-        {
-            return Result<PagedResult<UserGetAllResponse>>.BadRequestError($"SortBy must be one of: {string.Join(", ", SortableColumns.Keys)}.");
-        }
-
-        var users = _context.Users.AsNoTracking().AsQueryable();
+        var usersQuery = _context.Users.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var search = query.Search.Trim();
-            users = users.Where(u => u.FullName.Contains(search) || u.PhoneNumber.Contains(search));
+            usersQuery = usersQuery.Where(u => u.FullName.Contains(search) || u.PhoneNumber.Contains(search));
         }
 
-        var paged = await users.ApplySort(query.SortBy, query.Descending, SortableColumns, u => u.Id).ToPagedResultAsync(query.Page, query.PageSize, u => u.ToGetAllResponse());
+        var users = await usersQuery
+            .OrderBy(u => u.Id)
+            .Page(query.Page, query.PageSize)
+            .ToListAsync();
 
-        return Result<PagedResult<UserGetAllResponse>>.Success(paged);
+        var items = users.Select(u => u.ToGetAllResponse()).ToList();
+
+        return Result<List<UserGetAllResponse>>.Success(items, "Users retrieved successfully.");
     }
 }

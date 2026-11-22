@@ -13,14 +13,14 @@ public class Cart
     public Cart(int userId)
     {
         UserId = userId;
-        CreatedAt = DateTime.Now;
-        UpdatedAt = DateTime.Now;
+        CreatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
     }
     public static Result<Cart> Create(int userId)
     {
         if (userId <= 0)
         {
-            return Result<Cart>.BadRequestError("UserId is invalid !!");
+            Result<Cart>.InvalidId("User");
         }
         return Result<Cart>.Success(new Cart(userId));
     }
@@ -28,26 +28,26 @@ public class Cart
     {
         if (item == null)
         {
-            return Result.BadRequestError("CartItem is invalid !!");
+            Result.BadRequestError("Cart item is invalid.");
         }
         CartItems.Remove(item);
-        UpdatedAt = DateTime.Now;
+        UpdatedAt = DateTime.UtcNow;
         return Result.Success();
     }
     public Result Clear()
     {
         CartItems.Clear();
-        UpdatedAt = DateTime.Now;
+        UpdatedAt = DateTime.UtcNow;
         return Result.Success();
     }
     public Result AddItem(CartItem cartItem)
     {
         if (cartItem == null)
         {
-            return Result.BadRequestError("CartItem is invalid !!");
+            Result.BadRequestError("Cart item is invalid.");
         }
         CartItems.Add(cartItem);
-        UpdatedAt = DateTime.Now;
+        UpdatedAt = DateTime.UtcNow;
         return Result.Success();
     }
 }
