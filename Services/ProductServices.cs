@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Shahbazi.Store.Common.ResultPattern;
-using Shahbazi.Store.Resources;
 using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.DTOs.Responses;
@@ -164,6 +163,6 @@ public class ProductServices
 
         var items = products.Select(p => p.ToGetAllResponse()).ToList();
 
-        return Result<List<ProductGetAllResponse>>.Success(items, Messages.ProductsRetrieved);
+        return Result<List<ProductGetAllResponse>>.Success(items);
     }
 }

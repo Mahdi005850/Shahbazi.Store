@@ -1,6 +1,5 @@
 ﻿using Shahbazi.Store.DTOs.Queries;
 using Shahbazi.Store.DTOs.Requests;
-using Shahbazi.Store.Resources;
 using Shahbazi.Store.Services;
 using static Shahbazi.Store.Common.ResultPattern.ApiResults;
 

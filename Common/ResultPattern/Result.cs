@@ -1,6 +1,4 @@
-﻿using Shahbazi.Store.Resources;
-
-namespace Shahbazi.Store.Common.ResultPattern;
+﻿namespace Shahbazi.Store.Common.ResultPattern;
 
 public class Result
 {
@@ -22,7 +20,7 @@ public class Result
         Message = message;
     }
 
-    public static Result Success(string? message = null) => new(new(message ?? Messages.Success, ApiMessageType.Success));
+    public static Result Success(string? message = null) => new(new(message , ApiMessageType.Success));
 
     public static Result NotFound(string entity) => NotFoundError($"{entity} not found.");
     public static Result InvalidId(string entity) => BadRequestError($"{entity} id is invalid.");
@@ -41,7 +39,7 @@ public class Result<T> : Result
         Value = value;
     }
 
-    public static Result<T> Success(T value, string? message = null) => new(value, new(message ?? Messages.Success, ApiMessageType.Success));
+    public static Result<T> Success(T value, string? message = null) => new(value, new(message , ApiMessageType.Success));
 
     public static Result<T> Failure(ApiMessage message) => new(default, message);
 
