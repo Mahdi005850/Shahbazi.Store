@@ -10,30 +10,32 @@ public class OrderItem
     public int Quantity { get; private set; }
     public decimal UnitPrice { get; private set; }
     public decimal TotalPrice => UnitPrice * Quantity;
-    public OrderItem(int orderId, int productId, int quantity, decimal unitPrice)
+
+    private OrderItem(int orderId, int productId, int quantity, decimal unitPrice)
     {
         OrderId = orderId;
         ProductId = productId;
         Quantity = quantity;
         UnitPrice = unitPrice;
     }
+
     public static Result<OrderItem> Create(int orderId, int productId, int quantity, decimal unitPrice)
     {
         if (orderId <= 0)
         {
-            Result<OrderItem>.InvalidId("Order");
+            return Result<OrderItem>.InvalidId("Order");
         }
         if (productId <= 0)
         {
-            Result<OrderItem>.InvalidId("Product");
+            return Result<OrderItem>.InvalidId("Product");
         }
         if (quantity <= 0)
         {
-            Result<OrderItem>.BadRequestError("Quantity must be greater than zero.");
+            return Result<OrderItem>.BadRequestError("Quantity must be greater than zero.");
         }
         if (unitPrice <= 0)
         {
-            Result<OrderItem>.BadRequestError("Price must be greater than zero.");
+            return Result<OrderItem>.BadRequestError("Price must be greater than zero.");
         }
 
         return Result<OrderItem>.Success(new OrderItem(orderId, productId, quantity, unitPrice));
