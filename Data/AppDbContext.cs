@@ -25,5 +25,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().Property(u => u.PhoneNumber).HasMaxLength(20);
 
         modelBuilder.Entity<User>().HasIndex(u => u.PhoneNumber).IsUnique();
+        modelBuilder.Entity<Product>()
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(p => p.SellerId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

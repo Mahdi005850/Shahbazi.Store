@@ -13,4 +13,5 @@ public static class Policies
 {
     public const string AdminOnly = "AdminOnly";
     public const string SellerOrAdmin = "SellerOrAdmin";
+    public const string BuyerOnly = "BuyerOnly";
 }

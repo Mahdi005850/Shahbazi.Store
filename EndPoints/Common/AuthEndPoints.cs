@@ -16,6 +16,8 @@ public static class AuthEndpoints
 
         group.MapGet("/me", async (ClaimsPrincipal user, UserServices service) => ToHttpResult(await service.GetUserAsync(user.GetUserId()))).RequireAuthorization();
 
+        group.MapPut("/me", async (UserUpdateRequest request, ClaimsPrincipal user, UserServices service) => ToHttpResult(await service.UpdateUserAsync(user.GetUserId(), request.FullName, request.PhoneNumber, request.Address))).RequireAuthorization();
+
         return app;
     }
 }

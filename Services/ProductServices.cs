@@ -1,11 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Shahbazi.Store.Common.Querying;
 using Shahbazi.Store.Common.ResultPattern;
 using Shahbazi.Store.Data;
+using Shahbazi.Store.DTOs.Queries;
 using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.DTOs.Responses;
 using Shahbazi.Store.Models;
-using Shahbazi.Store.Common.Querying;
-using Shahbazi.Store.DTOs.Queries;
+using System.Collections;
 
 namespace Shahbazi.Store.Services;
 
@@ -17,8 +18,7 @@ public class ProductServices
     {
         _context = context;
     }
-
-    public async Task<Result<ProductGetResponse>> AddProductAsync(string name, decimal price, string? description, int stock)
+    public async Task<Result<ProductGetResponse>> AddProductAsync(int sellerId, string name, decimal price, string? description, int stock)
     {
         var request = new ProductCreateRequest(name, price, description, stock);
         var validation = request.Validate();
@@ -28,7 +28,7 @@ public class ProductServices
             return Result<ProductGetResponse>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        var productResult = Product.Create(name, price, description, stock);
+        var productResult = Product.Create(sellerId, name, price, description, stock);
 
         if (!productResult.IsSuccess)
         {
@@ -136,7 +136,7 @@ public class ProductServices
         await _context.SaveChangesAsync();
         return Result.Success(increase ? "Product stock increased successfully." : "Product stock decreased successfully.");
     }
-    public async Task<Result<List<ProductGetAllResponse>>> GetProductsAsync(ProductQuery query)
+    public async Task<Result<List<ProductGetAllResponse>>> GetProductsAsync(ProductQuery query, int? sellerId = null)
     {
         var validation = query.Validate();
 
@@ -146,6 +146,8 @@ public class ProductServices
         }
 
         var productsQuery = _context.Products.AsNoTracking().AsQueryable();
+
+        if (sellerId.HasValue) productsQuery = productsQuery.Where(p => p.SellerId == sellerId.Value);
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
@@ -165,4 +167,10 @@ public class ProductServices
 
         return Result<List<ProductGetAllResponse>>.Success(items);
     }
+
+    public Task<int?> GetSellerIdAsync(int productId) =>
+    _context.Products.AsNoTracking()
+        .Where(p => p.Id == productId)
+        .Select(p => (int?)p.SellerId)
+        .FirstOrDefaultAsync();
 }

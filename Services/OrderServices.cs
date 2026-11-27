@@ -217,7 +217,7 @@ public class OrderServices
         return Result.Success("Order address updated successfully.");
     }
 
-    public async Task<Result<List<OrderGetAllResponse>>> GetOrdersAsync(OrderQuery query)
+    public async Task<Result<List<OrderGetAllResponse>>> GetOrdersAsync(OrderQuery query, int? sellerId = null)
     {
         var validation = query.Validate();
 
@@ -227,6 +227,13 @@ public class OrderServices
         }
 
         var orders = _context.Orders.AsNoTracking().Include(o => o.OrderItems).AsQueryable();
+
+        if (sellerId.HasValue)
+        {
+            orders = orders.Where(o => o.OrderItems.Any(i =>
+            _context.Products.Any(p => p.Id == i.ProductId && p.SellerId == sellerId.Value)));
+        }
+
 
         if (query.UserId.HasValue) orders = orders.Where(o => o.UserId == query.UserId.Value);
 
@@ -244,4 +251,12 @@ public class OrderServices
 
         return Result<List<OrderGetAllResponse>>.Success(items, "Orders retrieved successfully.");
     }
+
+    public Task<int?> GetOrderOwnerIdAsync(int orderId) => _context.Orders
+            .AsNoTracking()
+            .Where(o => o.Id == orderId)
+            .Select(o => (int?)o.UserId)
+            .FirstOrDefaultAsync();
+
+    public Task<bool> SellerHasItemInOrderAsync(int orderId, int sellerId) => _context.OrderItems.AnyAsync(i => i.OrderId == orderId && _context.Products.Any(p => p.Id == i.ProductId && p.SellerId == sellerId));
 }

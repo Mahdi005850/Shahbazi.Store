@@ -54,7 +54,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.AdminOnly, policy => policy.RequireRole(Roles.Admin))
-    .AddPolicy(Policies.SellerOrAdmin, policy => policy.RequireRole(Roles.Seller, Roles.Admin));
+    .AddPolicy(Policies.SellerOrAdmin, policy => policy.RequireRole(Roles.Seller, Roles.Admin))
+    .AddPolicy(Policies.BuyerOnly, policy => policy.RequireRole(Roles.Buyer));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -105,13 +106,14 @@ using (var scope = app.Services.CreateScope())
 app.MapGet("/", () => "Shahbazi Store API Is running !!");
 
 app.MapAuthEndpoints();
-
 app.MapProductEndpoints();
 
-app.MapUserEndpoints();
+app.MapBuyerCartEndpoints();
+app.MapBuyerOrderEndpoints();
 
-app.MapCartEndpoints();
+app.MapSellerProductEndpoints();
+app.MapSellerOrderEndpoints();
 
-app.MapOrderEndpoints();
+app.MapAdminEndpoints();
 
 app.Run();

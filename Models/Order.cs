@@ -53,22 +53,22 @@ public class Order
     {
         if (!AllowedTransitions[Status].Contains(status))
         {
-            Result.ConflictError($"Cannot change order status from {Status} to {status}.");
+            return Result.ConflictError($"Cannot change order status from {Status} to {status}.");
         }
 
         Status = status;
         return Result.Success();
     }
+
     public Result Cancel()
     {
         if (Status == OrderStatus.Cancelled)
         {
-            Result.ConflictError("Order is already cancelled.");
+            return Result.ConflictError("Order is already cancelled.");
         }
-
         if (Status == OrderStatus.Delivered)
         {
-            Result.ConflictError("A delivered order cannot be cancelled.");
+            return Result.ConflictError("A delivered order cannot be cancelled.");
         }
 
         Status = OrderStatus.Cancelled;
@@ -79,12 +79,11 @@ public class Order
     {
         if (string.IsNullOrWhiteSpace(shippingAddress))
         {
-            Result.BadRequestError("Shipping address is required.");
+            return Result.BadRequestError("Shipping address is required.");
         }
-
         if (Status is OrderStatus.Shipped or OrderStatus.Delivered or OrderStatus.Cancelled)
         {
-            Result.ConflictError("The address of this order can no longer be changed.");
+            return Result.ConflictError("The address of this order can no longer be changed.");
         }
 
         ShippingAddress = shippingAddress;
