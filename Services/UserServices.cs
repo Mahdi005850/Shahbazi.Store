@@ -6,6 +6,7 @@ using Shahbazi.Store.Data;
 using Shahbazi.Store.DTOs.Queries;
 using Shahbazi.Store.DTOs.Requests;
 using Shahbazi.Store.DTOs.Responses;
+using Shahbazi.Store.Enums;
 using Shahbazi.Store.Models;
 using System.Linq.Expressions;
 
@@ -37,24 +38,6 @@ public class UserServices
         return Result<UserGetResponse>.Success(user.ToGetResponse(), "User retrieved successfully.");
     }
 
-    public async Task<Result<UserGetResponse>> AddUserAsync(string fullName, string phoneNumber, string address)
-    {
-        var request = new UserCreateRequest(fullName, phoneNumber, address);
-        var validation = request.Validate();
-
-        if (!validation.IsValid)
-        {
-            return Result<UserGetResponse>.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
-        }
-
-        var user = new User(fullName, phoneNumber, address);
-
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-
-        return Result<UserGetResponse>.Success(user.ToGetResponse(), "User created successfully.");
-    }
-
     public async Task<Result> UpdateUserAsync(int userId, string fullName, string phoneNumber, string address)
     {
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
@@ -73,11 +56,39 @@ public class UserServices
             return Result.BadRequestError(string.Join(" ", validation.Errors.Select(e => e.ErrorMessage)));
         }
 
-        user.UpdateInformation(fullName, phoneNumber, address);
+        var newPhoneNumber = phoneNumber.Trim();
+
+        if (await _context.Users.AnyAsync(u => u.PhoneNumber == newPhoneNumber && u.Id != userId))
+        {
+            return Result.ConflictError("A user with this phone number already exists.");
+        }
+
+        user.UpdateInformation(fullName.Trim(), newPhoneNumber, address.Trim());
         await _context.SaveChangesAsync();
 
         return Result.Success("User updated successfully.");
     }
+
+    public async Task<Result> ChangeRoleAsync(int userId, UserRole role)
+    {
+        if (!Enum.IsDefined(role))
+        {
+            return Result.BadRequestError("Role is invalid.");
+        }
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+        {
+            return Result.NotFound("User");
+        }
+
+        user.ChangeRole(role);
+        await _context.SaveChangesAsync();
+
+        return Result.Success("User role updated successfully.");
+    }
+
     public async Task<Result> DeleteUserAsync(int userId)
     {
         var validation = new UserDeleteRequest(userId).Validate();

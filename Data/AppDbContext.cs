@@ -20,5 +20,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CartItem>().Property(c => c.UnitPrice).HasPrecision(18, 2);
 
         modelBuilder.Entity<OrderItem>().Property(o => o.UnitPrice).HasPrecision(18, 2);
+
+        // PhoneNumber is the UserName: it must be unique (and have a max length, SQL Server cannot index nvarchar(max))
+        modelBuilder.Entity<User>().Property(u => u.PhoneNumber).HasMaxLength(20);
+
+        modelBuilder.Entity<User>().HasIndex(u => u.PhoneNumber).IsUnique();
     }
 }

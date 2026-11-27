@@ -45,6 +45,7 @@ public static class ApiResults
             ApiMessageType.BadRequest => TypedResults.BadRequest(body),
             ApiMessageType.NotFound => TypedResults.NotFound(body),
             ApiMessageType.Conflict => TypedResults.Conflict(body),
+            ApiMessageType.Unauthorized => TypedResults.Json(body, statusCode: StatusCodes.Status401Unauthorized),
             _ => TypedResults.Problem(message.Message)
         };
     }

@@ -7,7 +7,8 @@ public class Result
         Success,
         BadRequest,
         NotFound,
-        Conflict
+        Conflict,
+        Unauthorized
     }
 
     public sealed record ApiMessage(string Message, ApiMessageType Type);
@@ -20,7 +21,7 @@ public class Result
         Message = message;
     }
 
-    public static Result Success(string? message = null) => new(new(message , ApiMessageType.Success));
+    public static Result Success(string? message = null) => new(new(message, ApiMessageType.Success));
 
     public static Result NotFound(string entity) => NotFoundError($"{entity} not found.");
     public static Result InvalidId(string entity) => BadRequestError($"{entity} id is invalid.");
@@ -28,6 +29,7 @@ public class Result
     public static Result NotFoundError(string message) => new(new(message, ApiMessageType.NotFound));
     public static Result ConflictError(string message) => new(new(message, ApiMessageType.Conflict));
     public static Result BadRequestError(string message) => new(new(message, ApiMessageType.BadRequest));
+    public static Result UnauthorizedError(string message) => new(new(message, ApiMessageType.Unauthorized));
 }
 
 public class Result<T> : Result
@@ -39,7 +41,7 @@ public class Result<T> : Result
         Value = value;
     }
 
-    public static Result<T> Success(T value, string? message = null) => new(value, new(message , ApiMessageType.Success));
+    public static Result<T> Success(T value, string? message = null) => new(value, new(message, ApiMessageType.Success));
 
     public static Result<T> Failure(ApiMessage message) => new(default, message);
 
@@ -49,4 +51,5 @@ public class Result<T> : Result
     public static new Result<T> NotFoundError(string message) => new(default, new(message, ApiMessageType.NotFound));
     public static new Result<T> ConflictError(string message) => new(default, new(message, ApiMessageType.Conflict));
     public static new Result<T> BadRequestError(string message) => new(default, new(message, ApiMessageType.BadRequest));
+    public static new Result<T> UnauthorizedError(string message) => new(default, new(message, ApiMessageType.Unauthorized));
 }
